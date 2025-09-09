@@ -126,16 +126,46 @@ vaadin.launch-browser=false
 
 ## Contributing
 
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details on how to get started.
+
+### Quick Start for Contributors
+
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Make your changes and add tests
+4. Commit your changes: `git commit -m 'feat: add amazing feature'`
+5. Push to the branch: `git push origin feature/amazing-feature`
+6. Open a Pull Request
+
+## Security
+
+If you discover a security vulnerability, please follow our [Security Policy](SECURITY.md) for responsible disclosure.
+
+## Code of Conduct
+
+This project adheres to the Contributor Covenant [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Badges
+
+![CI](https://github.com/DelShahab/budget-planner/workflows/CI/badge.svg)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Java](https://img.shields.io/badge/java-17+-orange.svg)
+![Spring Boot](https://img.shields.io/badge/spring--boot-3.3.5-green.svg)
+![Vaadin](https://img.shields.io/badge/vaadin-24.4.4-blue.svg)
 
 ## Support
 
-For support or questions, please open an issue in the GitHub repository.
+For support or questions:
+- 📋 [Open an issue](https://github.com/DelShahab/budget-planner/issues/new/choose)
+- 💬 [Start a discussion](https://github.com/DelShahab/budget-planner/discussions)
+- 📖 Check the [documentation](README.md)
+
+## Acknowledgments
+
+- [Vaadin](https://vaadin.com/) for the excellent UI framework
+- [Spring Boot](https://spring.io/projects/spring-boot) for the robust backend
+- All contributors who help improve this project
