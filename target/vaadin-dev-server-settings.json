@@ -1,0 +1,17 @@
+{
+  "frontendFolder": "/Users/delshahab/CascadeProjects/windsurf-project/./frontend",
+  "themeFolder": "themes",
+  "themeResourceFolder": "/Users/delshahab/CascadeProjects/windsurf-project/./frontend/generated/jar-resources",
+  "staticOutput": "/Users/delshahab/CascadeProjects/windsurf-project/target/classes/META-INF/VAADIN/webapp/VAADIN/static",
+  "generatedFolder": "generated",
+  "statsOutput": "/Users/delshahab/CascadeProjects/windsurf-project/target/classes/META-INF/VAADIN/config",
+  "frontendBundleOutput": "/Users/delshahab/CascadeProjects/windsurf-project/target/classes/META-INF/VAADIN/webapp",
+  "devBundleOutput": "/Users/delshahab/CascadeProjects/windsurf-project/target/dev-bundle/webapp",
+  "devBundleStatsOutput": "/Users/delshahab/CascadeProjects/windsurf-project/target/dev-bundle/config",
+  "jarResourcesFolder": "/Users/delshahab/CascadeProjects/windsurf-project/./frontend/generated/jar-resources",
+  "themeName": "",
+  "clientServiceWorkerSource": "/Users/delshahab/CascadeProjects/windsurf-project/target/sw.ts",
+  "pwaEnabled": false,
+  "offlineEnabled": false,
+  "offlinePath": "'offline.html'"
+}
