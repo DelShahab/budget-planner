@@ -20,6 +20,7 @@ import com.vaadin.flow.component.textfield.NumberField;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.KeyModifier;
 import com.vaadin.flow.component.Shortcuts;
@@ -27,9 +28,22 @@ import com.vaadin.flow.component.treegrid.TreeGrid;
 import com.vaadin.flow.data.provider.hierarchy.TreeData;
 import com.vaadin.flow.data.provider.hierarchy.TreeDataProvider;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment;
+import com.vaadin.flow.component.orderedlayout.FlexComponent.JustifyContentMode;
+import com.vaadin.flow.component.dialog.Dialog;
+import com.vaadin.flow.component.contextmenu.ContextMenu;
+import com.vaadin.flow.component.contextmenu.MenuItem;
+import com.vaadin.flow.component.upload.Upload;
+import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.avatar.Avatar;
+import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.theme.lumo.Lumo;
+import java.io.*;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 
-import java.io.Serial;
 import java.time.LocalDate;
 import java.time.Month;
 import java.time.Year;
@@ -62,8 +76,10 @@ public class BudgetView extends VerticalLayout {
     private TreeGrid<NavigationNode> navigationTree;
     private Div sidebar;
     private VerticalLayout mainContent;
+    private H2 monthHeader;
     private SplitLayout splitLayout;
     private VerticalLayout formPanel;
+    private Dialog uploadDialog;
     // Track form panel visibility state
     
     // Form components
@@ -200,8 +216,8 @@ public class BudgetView extends VerticalLayout {
         sidebar.setHeight("100%");
         
         // Month/Year header
-        H2 monthHeader = new H2(currentMonth.name().substring(0, 1) + 
-                               currentMonth.name().substring(1).toLowerCase());
+        monthHeader = new H2();
+        updateMonthHeader();
         monthHeader.addClassName("month-header");
         
         Span budgetLabel = new Span("BUDGET DASHBOARD");
@@ -213,7 +229,10 @@ public class BudgetView extends VerticalLayout {
         navigationTree.setHeightFull();
         navigationTree.addHierarchyColumn(NavigationNode::getLabel).setHeader("Period");
         
-        sidebar.add(monthHeader, budgetLabel, navigationTree);
+        // User profile section (will be positioned at bottom via CSS)
+        Div userProfileSection = createUserProfileSection();
+        
+        sidebar.add(monthHeader, budgetLabel, navigationTree, userProfileSection);
     }
 
     private void buildMainDashboard() {
@@ -282,7 +301,9 @@ public class BudgetView extends VerticalLayout {
     private HorizontalLayout createSummaryCards() {
         HorizontalLayout layout = new HorizontalLayout();
         layout.setWidthFull();
-        layout.setSpacing(true);
+        layout.setSpacing(false);
+        layout.setPadding(false);
+        layout.setMargin(false);
         layout.addClassName("summary-cards");
         
         // Create summary cards
@@ -308,6 +329,16 @@ public class BudgetView extends VerticalLayout {
         leftoverTotal = (Span) leftoverCard.getChildren().skip(1).findFirst().orElse(null);
         
         layout.add(rolloverCard, incomeCard, expensesCard, billsCard, savingsCard, debtCard, leftoverCard);
+        
+        // Make each card take equal width with no gaps
+        layout.setFlexGrow(1, rolloverCard);
+        layout.setFlexGrow(1, incomeCard);
+        layout.setFlexGrow(1, expensesCard);
+        layout.setFlexGrow(1, billsCard);
+        layout.setFlexGrow(1, savingsCard);
+        layout.setFlexGrow(1, debtCard);
+        layout.setFlexGrow(1, leftoverCard);
+        
         return layout;
     }
 
@@ -604,12 +635,245 @@ public class BudgetView extends VerticalLayout {
         return container;
     }
 
+    private void updateMonthHeader() {
+        String monthName = currentMonth.name().substring(0, 1) + 
+                          currentMonth.name().substring(1).toLowerCase();
+        monthHeader.setText(monthName + " " + currentYear.getValue());
+    }
+
+    private Div createUserProfileSection() {
+        Div profileSection = new Div();
+        profileSection.addClassName("user-profile-section");
+        
+        // User avatar
+        Avatar avatar = new Avatar("John Doe");
+        avatar.setColorIndex(1);
+        avatar.addClassName("user-avatar");
+        
+        // Username
+        Span username = new Span("John Doe");
+        username.addClassName("username");
+        
+        // Three dots menu button
+        Button menuButton = new Button(VaadinIcon.ELLIPSIS_DOTS_V.create());
+        menuButton.addClassName("menu-button");
+        menuButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
+        
+        // Profile container
+        HorizontalLayout profileContainer = new HorizontalLayout(avatar, username, menuButton);
+        profileContainer.addClassName("profile-container");
+        profileContainer.setAlignItems(Alignment.CENTER);
+        profileContainer.setJustifyContentMode(JustifyContentMode.BETWEEN);
+        profileContainer.setWidthFull();
+        
+        // Create context menu for dropdown attached to menu button
+        ContextMenu contextMenu = new ContextMenu();
+        contextMenu.setTarget(menuButton);
+        contextMenu.setOpenOnClick(true); // Enable single click to open
+        
+        // Add menu items with proper dark theme icons
+        MenuItem uploadItem = contextMenu.addItem("Upload Bank Statement", e -> openUploadDialog());
+        Icon uploadIcon = VaadinIcon.UPLOAD_ALT.create();
+        uploadIcon.setSize("16px");
+        uploadIcon.getStyle().set("color", "var(--lumo-secondary-text-color)");
+        uploadItem.addComponentAsFirst(uploadIcon);
+        
+        MenuItem settingsItem = contextMenu.addItem("Settings", e -> 
+            Notification.show("Settings coming soon!", 3000, Notification.Position.TOP_CENTER));
+        Icon settingsIcon = VaadinIcon.COG_O.create();
+        settingsIcon.setSize("16px");
+        settingsIcon.getStyle().set("color", "var(--lumo-secondary-text-color)");
+        settingsItem.addComponentAsFirst(settingsIcon);
+        
+        MenuItem logoutItem = contextMenu.addItem("Logout", e -> 
+            Notification.show("Logout functionality coming soon!", 3000, Notification.Position.TOP_CENTER));
+        Icon logoutIcon = VaadinIcon.SIGN_OUT_ALT.create();
+        logoutIcon.setSize("16px");
+        logoutIcon.getStyle().set("color", "var(--lumo-secondary-text-color)");
+        logoutItem.addComponentAsFirst(logoutIcon);
+        
+        profileSection.add(profileContainer);
+        return profileSection;
+    }
+
+    private void openUploadDialog() {
+        uploadDialog = new Dialog();
+        uploadDialog.setHeaderTitle("Upload Bank Statement");
+        uploadDialog.setWidth("500px");
+        uploadDialog.setHeight("400px");
+        
+        VerticalLayout dialogContent = new VerticalLayout();
+        dialogContent.setSpacing(true);
+        dialogContent.setPadding(false);
+        
+        // Instructions
+        Span instructions = new Span("Upload your bank statement (CSV or Excel format) to automatically populate your budget.");
+        instructions.getStyle().set("color", "var(--lumo-secondary-text-color)");
+        instructions.getStyle().set("font-size", "var(--lumo-font-size-s)");
+        
+        // File upload component
+        MemoryBuffer buffer = new MemoryBuffer();
+        Upload upload = new Upload(buffer);
+        upload.setAcceptedFileTypes(".csv", ".xlsx", ".xls");
+        upload.setMaxFiles(1);
+        upload.setDropLabel(new Span("Drop bank statement here or click to browse"));
+        
+        // Upload success handler
+        upload.addSucceededListener(event -> {
+            try {
+                processUploadedFile(buffer.getInputStream(), event.getFileName());
+                uploadDialog.close();
+                Notification notification = Notification.show("Bank statement processed successfully!", 5000, Notification.Position.TOP_CENTER);
+                notification.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+            } catch (Exception e) {
+                Notification notification = Notification.show("Error processing file: " + e.getMessage(), 5000, Notification.Position.TOP_CENTER);
+                notification.addThemeVariants(NotificationVariant.LUMO_ERROR);
+            }
+        });
+        
+        // Upload failed handler
+        upload.addFailedListener(event -> {
+            Notification notification = Notification.show("Upload failed: " + event.getReason().getMessage(), 5000, Notification.Position.TOP_CENTER);
+            notification.addThemeVariants(NotificationVariant.LUMO_ERROR);
+        });
+        
+        dialogContent.add(instructions, upload);
+        
+        // Dialog buttons
+        Button dialogCancelButton = new Button("Cancel", e -> uploadDialog.close());
+        dialogCancelButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        
+        uploadDialog.getFooter().add(dialogCancelButton);
+        uploadDialog.add(dialogContent);
+        uploadDialog.open();
+    }
+
+    private void processUploadedFile(InputStream inputStream, String fileName) throws IOException {
+        List<BudgetItem> newItems = new ArrayList<>();
+        
+        if (fileName.toLowerCase().endsWith(".csv")) {
+            newItems = parseCsvFile(inputStream);
+        } else if (fileName.toLowerCase().endsWith(".xlsx") || fileName.toLowerCase().endsWith(".xls")) {
+            // For now, show a message that Excel support is coming soon
+            throw new IOException("Excel file support coming soon. Please convert to CSV format.");
+        }
+        
+        // Add new items to existing data
+        sampleBudgetItems.addAll(newItems);
+        
+        // Refresh the dashboard to show new data
+        refreshDashboard();
+        
+        Notification.show("Imported " + newItems.size() + " transactions successfully!", 3000, Notification.Position.TOP_CENTER);
+    }
+
+    private List<BudgetItem> parseCsvFile(InputStream inputStream) throws IOException {
+        List<BudgetItem> items = new ArrayList<>();
+        
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+            String line;
+            boolean isFirstLine = true;
+            
+            while ((line = reader.readLine()) != null) {
+                // Skip header row
+                if (isFirstLine) {
+                    isFirstLine = false;
+                    continue;
+                }
+                
+                // Parse CSV line (simple comma-separated parsing)
+                String[] parts = line.split(",");
+                if (parts.length >= 3) {
+                    try {
+                        // Assume format: Date, Description, Amount, [optional: Category]
+                        String description = parts[1].trim().replaceAll("\"", "");
+                        double amount = Double.parseDouble(parts[2].trim().replaceAll("\"", ""));
+                        
+                        // Determine category using AI-like logic
+                        String category = categorizeTransaction(description, amount);
+                        
+                        // Create budget item
+                        BudgetItem item = new BudgetItem();
+                        item.setCategory(description);
+                        item.setCategoryType(category);
+                        item.setPlanned(Math.abs(amount)); // Use absolute value for planned
+                        item.setActual(Math.abs(amount));
+                        item.setYear(currentYear.getValue());
+                        item.setMonth(currentMonth.getValue());
+                        
+                        items.add(item);
+                    } catch (NumberFormatException e) {
+                        // Skip invalid lines
+                        continue;
+                    }
+                }
+            }
+        }
+        
+        return items;
+    }
+
+    private String categorizeTransaction(String description, double amount) {
+        String desc = description.toLowerCase();
+        
+        // Income patterns
+        if (amount > 0 || desc.contains("salary") || desc.contains("payroll") || 
+            desc.contains("deposit") || desc.contains("income") || desc.contains("refund")) {
+            return CATEGORY_INCOME;
+        }
+        
+        // Bills patterns (recurring/utility payments)
+        if (desc.contains("electric") || desc.contains("gas") || desc.contains("water") ||
+            desc.contains("internet") || desc.contains("phone") || desc.contains("insurance") ||
+            desc.contains("mortgage") || desc.contains("rent") || desc.contains("loan") ||
+            desc.contains("credit card") || desc.contains("autopay") || desc.contains("bill")) {
+            return CATEGORY_BILLS;
+        }
+        
+        // Savings patterns
+        if (desc.contains("savings") || desc.contains("investment") || desc.contains("transfer to") ||
+            desc.contains("401k") || desc.contains("ira") || desc.contains("retirement")) {
+            return CATEGORY_SAVINGS;
+        }
+        
+        // Grocery and food patterns
+        if (desc.contains("grocery") || desc.contains("supermarket") || desc.contains("food") ||
+            desc.contains("restaurant") || desc.contains("cafe") || desc.contains("starbucks") ||
+            desc.contains("mcdonald") || desc.contains("pizza") || desc.contains("dining")) {
+            return CATEGORY_EXPENSES;
+        }
+        
+        // Transportation patterns
+        if (desc.contains("gas") || desc.contains("fuel") || desc.contains("uber") ||
+            desc.contains("lyft") || desc.contains("parking") || desc.contains("metro") ||
+            desc.contains("bus") || desc.contains("taxi") || desc.contains("car")) {
+            return CATEGORY_EXPENSES;
+        }
+        
+        // Shopping patterns
+        if (desc.contains("amazon") || desc.contains("target") || desc.contains("walmart") ||
+            desc.contains("costco") || desc.contains("shopping") || desc.contains("store") ||
+            desc.contains("purchase") || desc.contains("retail")) {
+            return CATEGORY_EXPENSES;
+        }
+        
+        // Entertainment patterns
+        if (desc.contains("netflix") || desc.contains("spotify") || desc.contains("movie") ||
+            desc.contains("theater") || desc.contains("entertainment") || desc.contains("game") ||
+            desc.contains("subscription")) {
+            return CATEGORY_EXPENSES;
+        }
+        
+        // Default to expenses for negative amounts
+        return CATEGORY_EXPENSES;
+    }
+
     private void setupNavigationTree() {
         TreeData<NavigationNode> treeData = new TreeData<>();
         
-        // Create year nodes (2023 to current year + 1)
+        // Create year nodes (2023 to current year only)
         int startYear = 2023;
-        int endYear = currentYear.getValue() + 1;
+        int endYear = currentYear.getValue();
         
         for (int year = startYear; year <= endYear; year++) {
             NavigationNode yearNode = new NavigationNode(Year.of(year));
@@ -618,8 +882,7 @@ public class BudgetView extends VerticalLayout {
             // Add month children only for valid months (not future months)
             for (Month month : Month.values()) {
                 // Skip future months beyond current date
-                if ((year == currentYear.getValue() && month.getValue() > currentMonth.getValue()) || 
-                    (year > currentYear.getValue())) {
+                if (year == currentYear.getValue() && month.getValue() > currentMonth.getValue()) {
                     continue;
                 }
                 
@@ -668,6 +931,7 @@ public class BudgetView extends VerticalLayout {
         if (selectedNode.getType() == NavigationNode.NodeType.MONTH) {
             currentYear = selectedNode.getYear();
             currentMonth = selectedNode.getMonth();
+            updateMonthHeader();
             refreshDashboard();
         }
     }

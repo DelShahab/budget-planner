@@ -188,7 +188,7 @@
   "Frontend/styles/budget-dashboard.css"
  ],
  "frontendHashes": {
-  "styles/budget-dashboard.css": "3a5328ed1b1fb02eb53e17b44a6a491f912eea3abab3b37a823c261c151c27ce",
+  "styles/budget-dashboard.css": "0b2289b1a98de98ad18127c69e86e9b9115b434879a0fab789f1debab202befe",
   "buttonFunctions.js": "00f38e12177c7c2266aca6e98537b33407976fec939b7638f77b8caba7717968",
   "comboBoxConnector.js": "1d004c3dae9c76f8bcc68678abe1b8f7bdc8b456f5c9c4c7f190df8ed25d66cd",
   "contextMenuConnector.js": "b3e8b1b38de09aa65321338d3c149e18b4c5b53959ba134afe3be2d14942d86d",
@@ -210,7 +210,7 @@
  },
  "themeJsonContents": {},
  "entryScripts": [
-  "VAADIN/build/indexhtml-BRNpU1Lv.js"
+  "VAADIN/build/indexhtml-ByE1YNTO.js"
  ],
  "webComponents": [],
  "cvdlModules": {
@@ -221,6 +221,6 @@
  },
  "packageJsonHash": "317066537bf5a56fe9bf96a2cb9d9641c42625b0c4896896713abf1ea1fb3107",
  "indexHtmlGenerated": [
-  "  <script type=\"module\" crossorigin src=\"./VAADIN/build/indexhtml-BRNpU1Lv.js\"></script>"
+  "  <script type=\"module\" crossorigin src=\"./VAADIN/build/indexhtml-ByE1YNTO.js\"></script>"
  ]
 }

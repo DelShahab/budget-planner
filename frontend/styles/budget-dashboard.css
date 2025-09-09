@@ -21,7 +21,11 @@ html, body {
 .sidebar {
     background: var(--lumo-contrast-5pct);
     border-right: 1px solid var(--lumo-contrast-10pct);
+    overflow: hidden;
     padding: var(--lumo-space-m);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
 }
 
 .month-header {
@@ -42,6 +46,9 @@ html, body {
 
 .navigation-tree {
     background: transparent;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
 }
 
 /* Main Dashboard Styles */
@@ -60,8 +67,12 @@ html, body {
 /* Summary Cards */
 .summary-cards {
     display: flex;
-    gap: var(--lumo-space-m);
+    gap: 0;
     margin-bottom: var(--lumo-space-l);
+    width: 100%;
+    padding: 0;
+    margin-left: 0;
+    margin-right: 0;
     flex-wrap: wrap;
     justify-content: center;
     flex-shrink: 0;
@@ -70,10 +81,23 @@ html, body {
 .summary-card {
     background: var(--lumo-contrast-5pct);
     border: 1px solid var(--lumo-contrast-10pct);
-    border-radius: var(--lumo-border-radius-m);
+    border-radius: 0;
     padding: var(--lumo-space-m);
     text-align: center;
-    min-width: 120px;
+    flex: 1;
+    min-width: 0;
+    border-right: none;
+}
+
+.summary-card:first-child {
+    border-top-left-radius: var(--lumo-border-radius-m);
+    border-bottom-left-radius: var(--lumo-border-radius-m);
+}
+
+.summary-card:last-child {
+    border-top-right-radius: var(--lumo-border-radius-m);
+    border-bottom-right-radius: var(--lumo-border-radius-m);
+    border-right: 1px solid var(--lumo-contrast-10pct);
 }
 
 .summary-card .card-title {
@@ -87,8 +111,92 @@ html, body {
 .summary-card .card-value {
     font-size: var(--lumo-font-size-xl);
     font-weight: 600;
+}
+
+
+/* User Profile Section - Bottom positioned */
+.user-profile-section {
+    margin-top: auto;
+    padding: var(--lumo-space-s);
+    border-top: 1px solid var(--lumo-contrast-10pct);
+    flex-shrink: 0;
+}
+
+.profile-container {
+    padding: var(--lumo-space-xs);
+    border-radius: var(--lumo-border-radius-m);
+    transition: background-color 0.2s ease;
+}
+
+.profile-container:hover {
+    background-color: var(--lumo-contrast-5pct);
+}
+
+.user-avatar {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+}
+
+.username {
+    font-size: var(--lumo-font-size-s);
+    font-weight: 500;
+    color: var(--lumo-body-text-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+}
+
+.menu-button {
+    min-width: 24px;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    color: var(--lumo-secondary-text-color);
+}
+
+.menu-button:hover {
     color: var(--lumo-primary-text-color);
-    display: block;
+    background-color: var(--lumo-contrast-10pct);
+}
+
+/* Context Menu Dark Theme Styling */
+vaadin-context-menu-overlay {
+    --lumo-base-color: var(--lumo-shade-5pct);
+    --lumo-contrast-5pct: var(--lumo-shade-10pct);
+    --lumo-contrast-10pct: var(--lumo-shade-20pct);
+    --lumo-primary-text-color: var(--lumo-header-text-color);
+    --lumo-body-text-color: var(--lumo-body-text-color);
+    border-radius: var(--lumo-border-radius-m);
+    box-shadow: var(--lumo-box-shadow-l);
+}
+
+vaadin-context-menu-item {
+    color: var(--lumo-body-text-color);
+    background-color: transparent;
+    padding: var(--lumo-space-s) var(--lumo-space-m);
+    border-radius: var(--lumo-border-radius-s);
+    margin: var(--lumo-space-xs);
+}
+
+vaadin-context-menu-item:hover {
+    background-color: var(--lumo-primary-color-10pct);
+    color: var(--lumo-primary-text-color);
+}
+
+vaadin-context-menu-item[selected] {
+    background-color: var(--lumo-primary-color);
+    color: var(--lumo-primary-contrast-color);
+}
+
+vaadin-context-menu-item vaadin-icon {
+    color: var(--lumo-secondary-text-color);
+    margin-right: var(--lumo-space-s);
+}
+
+vaadin-context-menu-item:hover vaadin-icon {
+    color: var(--lumo-primary-text-color);
 }
 
 .income-card {
