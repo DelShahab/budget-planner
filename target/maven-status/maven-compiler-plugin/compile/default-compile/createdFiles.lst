@@ -21,6 +21,7 @@ com/budgetplanner/budget/service/AIAdvisoryService$AdvisoryTip$TipType.class
 com/budgetplanner/budget/NavigationNode.class
 com/budgetplanner/budget/view/ManualTransactionDialog.class
 com/budgetplanner/budget/service/PlaidMonitoringService.class
+com/budgetplanner/budget/ModernDashboardView.class
 com/budgetplanner/budget/config/EnhancedPlaidConfig$PlaidServiceProperties.class
 com/budgetplanner/budget/service/PlaidMonitoringService$1.class
 com/budgetplanner/budget/service/RecurringTransactionService$RecurrenceAnalysis.class
@@ -40,6 +41,7 @@ com/budgetplanner/budget/repository/RecurringTransactionRepository.class
 com/budgetplanner/budget/controller/PlaidWebhookController.class
 com/budgetplanner/budget/model/RecurringTransaction.class
 com/budgetplanner/budget/service/RecurringTransactionService.class
+com/budgetplanner/budget/service/DashboardDataService.class
 com/budgetplanner/budget/NavigationNode$1.class
 com/budgetplanner/budget/service/SimplifiedEnhancedPlaidService$PlaidServiceException.class
 com/budgetplanner/budget/repository/BankTransactionRepository.class

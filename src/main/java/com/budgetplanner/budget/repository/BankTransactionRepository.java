@@ -48,4 +48,6 @@ public interface BankTransactionRepository extends JpaRepository<BankTransaction
     boolean existsByPlaidTransactionId(String plaidTransactionId);
     
     List<BankTransaction> findByCreatedAtAfterOrderByTransactionDateAsc(LocalDateTime createdAt);
+    
+    List<BankTransaction> findByTransactionDateBetweenOrderByTransactionDateDesc(LocalDate startDate, LocalDate endDate);
 }

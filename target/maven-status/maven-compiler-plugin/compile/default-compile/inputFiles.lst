@@ -19,6 +19,7 @@
 /Users/delshahab/CascadeProjects/windsurf-project/src/main/java/com/budgetplanner/budget/repository/RecurringTransactionRepository.java
 /Users/delshahab/CascadeProjects/windsurf-project/src/main/java/com/budgetplanner/budget/service/AIAdvisoryService.java
 /Users/delshahab/CascadeProjects/windsurf-project/src/main/java/com/budgetplanner/budget/service/BankAccountService.java
+/Users/delshahab/CascadeProjects/windsurf-project/src/main/java/com/budgetplanner/budget/service/DashboardDataService.java
 /Users/delshahab/CascadeProjects/windsurf-project/src/main/java/com/budgetplanner/budget/service/EnhancedPlaidService.java
 /Users/delshahab/CascadeProjects/windsurf-project/src/main/java/com/budgetplanner/budget/service/PlaidMonitoringService.java
 /Users/delshahab/CascadeProjects/windsurf-project/src/main/java/com/budgetplanner/budget/service/PlaidService.java

@@ -1,5 +1,7 @@
 package com.budgetplanner.budget;
 
+import com.budgetplanner.budget.model.BankTransaction;
+import com.budgetplanner.budget.service.DashboardDataService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.charts.Chart;
@@ -16,8 +18,11 @@ import com.vaadin.flow.component.splitlayout.SplitLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 
+import java.util.List;
+import java.util.Map;
+
 /**
- * Modern Financial Dashboard View matching static HTML/CSS reference
+ * Modern Financial Dashboard View with real data integration and USD conversion
  */
 @Route(value = "modern-dashboard")
 @PageTitle("Modern Dashboard | Budget Planner")
@@ -26,7 +31,11 @@ import com.vaadin.flow.router.Route;
 @CssImport("./styles/mobile-responsive.css")
 public class ModernDashboardView extends Div {
 
-    public ModernDashboardView() {
+    private final DashboardDataService dashboardDataService;
+
+    public ModernDashboardView(DashboardDataService dashboardDataService) {
+        this.dashboardDataService = dashboardDataService;
+        
         setSizeFull();
         addClassName("modern-dashboard");
 
@@ -186,17 +195,23 @@ public class ModernDashboardView extends Div {
         Div summaryContainer = new Div();
         summaryContainer.addClassName("summary-cards-grid");
 
-        // Total Earnings
-        Div totalEarnings = createSummaryCard("Total Earnings", "Rp 22,120.50", VaadinIcon.TRENDING_UP, "total-earnings");
+        // Get real data
+        double earnings = dashboardDataService.getTotalEarnings();
+        double spendings = dashboardDataService.getTotalSpendings();
         
-        // Total Spendings  
-        Div totalSpendings = createSummaryCard("Total Spendings", "Rp 9,010.00", VaadinIcon.TRENDING_DOWN, "total-spendings");
+        // Total Earnings (USD)
+        String earningsUSD = dashboardDataService.formatUSD(dashboardDataService.convertToUSD(earnings));
+        Div totalEarnings = createSummaryCard("Total Earnings", earningsUSD, VaadinIcon.TRENDING_UP, "total-earnings");
         
-        // Goal for This Month
-        Div goalMonth = createSummaryCard("Goal for This Month", "Rp 25,520.05", VaadinIcon.BULLSEYE, "goal-month");
+        // Total Spendings (USD)
+        String spendingsUSD = dashboardDataService.formatUSD(dashboardDataService.convertToUSD(spendings));
+        Div totalSpendings = createSummaryCard("Total Spendings", spendingsUSD, VaadinIcon.TRENDING_DOWN, "total-spendings");
         
-        // Spending Goal
-        Div spendingGoal = createSummaryCard("Spending Goal", "Rp 2,250.30", VaadinIcon.WALLET, "spending-goal");
+        // Goal for This Month (static for now)
+        Div goalMonth = createSummaryCard("Goal for This Month", "$1,632.00", VaadinIcon.BULLSEYE, "goal-month");
+        
+        // Spending Goal (static for now)
+        Div spendingGoal = createSummaryCard("Spending Goal", "$144.00", VaadinIcon.WALLET, "spending-goal");
 
         summaryContainer.add(totalEarnings, totalSpendings, goalMonth, spendingGoal);
         return summaryContainer;
@@ -562,17 +577,22 @@ public class ModernDashboardView extends Div {
         Span title = new Span("All Expenses");
         title.addClassName("section-title");
 
-        // Daily, Weekly, Monthly amounts
+        // Daily, Weekly, Monthly amounts with real data
         HorizontalLayout amounts = new HorizontalLayout();
         amounts.setWidthFull();
         amounts.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
+
+        // Get real expense data
+        double dailyExp = dashboardDataService.getDailyExpenses();
+        double weeklyExp = dashboardDataService.getWeeklyExpenses();
+        double monthlyExp = dashboardDataService.getTotalSpendings();
 
         VerticalLayout daily = new VerticalLayout();
         daily.setPadding(false);
         daily.setSpacing(false);
         Span dailyLabel = new Span("Daily");
         dailyLabel.getStyle().set("font-size", "12px").set("color", "var(--secondary-color)");
-        Span dailyAmount = new Span("Rp 31.000");
+        Span dailyAmount = new Span(dashboardDataService.formatUSD(dashboardDataService.convertToUSD(dailyExp)));
         dailyAmount.getStyle().set("font-size", "14px").set("font-weight", "600").set("color", "white");
         daily.add(dailyLabel, dailyAmount);
 
@@ -581,7 +601,7 @@ public class ModernDashboardView extends Div {
         weekly.setSpacing(false);
         Span weeklyLabel = new Span("Weekly");
         weeklyLabel.getStyle().set("font-size", "12px").set("color", "var(--secondary-color)");
-        Span weeklyAmount = new Span("Rp 251.000");
+        Span weeklyAmount = new Span(dashboardDataService.formatUSD(dashboardDataService.convertToUSD(weeklyExp)));
         weeklyAmount.getStyle().set("font-size", "14px").set("font-weight", "600").set("color", "white");
         weekly.add(weeklyLabel, weeklyAmount);
 
@@ -590,7 +610,7 @@ public class ModernDashboardView extends Div {
         monthly.setSpacing(false);
         Span monthlyLabel = new Span("Monthly");
         monthlyLabel.getStyle().set("font-size", "12px").set("color", "var(--secondary-color)");
-        Span monthlyAmount = new Span("Rp 915.200");
+        Span monthlyAmount = new Span(dashboardDataService.formatUSD(dashboardDataService.convertToUSD(monthlyExp)));
         monthlyAmount.getStyle().set("font-size", "14px").set("font-weight", "600").set("color", "white");
         monthly.add(monthlyLabel, monthlyAmount);
 
