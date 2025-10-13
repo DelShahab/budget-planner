@@ -1122,10 +1122,14 @@ public class ModernDashboardView extends Div {
         Dialog dialog = new Dialog();
         dialog.addClassName("modern-dialog");
         dialog.setWidth("500px");
-        dialog.getElement().getStyle()
-            .set("background", "#262238")
-            .set("border-radius", "20px")
-            .set("box-shadow", "0 20px 60px rgba(0, 0, 0, 0.5)");
+        
+        // Style the dialog overlay element
+        dialog.getElement().getThemeList().add("dark-overlay");
+        dialog.getElement().executeJs(
+            "this.$.overlay.style.background = '#171521';" +
+            "this.$.overlay.style.borderRadius = '20px';" +
+            "this.$.overlay.style.boxShadow = '0 20px 60px rgba(0, 0, 0, 0.5)';"
+        );
         
         // Header
         HorizontalLayout header = new HorizontalLayout();
