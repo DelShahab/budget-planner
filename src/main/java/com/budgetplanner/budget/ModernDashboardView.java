@@ -18,6 +18,8 @@ import com.vaadin.flow.component.splitlayout.SplitLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -344,7 +346,7 @@ public class ModernDashboardView extends Div {
         // Configure tooltip
         Tooltip tooltip = conf.getTooltip();
         tooltip.setEnabled(true);
-        tooltip.setValueSuffix("k");
+        tooltip.setValuePrefix("$");
         tooltip.setBackgroundColor(new SolidColor("#1f2937"));
         tooltip.setBorderColor(new SolidColor("#374151"));
         com.vaadin.flow.component.charts.model.style.Style tooltipStyle = new com.vaadin.flow.component.charts.model.style.Style();
@@ -354,9 +356,25 @@ public class ModernDashboardView extends Div {
         // Disable legend
         conf.getLegend().setEnabled(false);
         
+        // Get real activity statistics (last 30 days by day of month)
+        Map<Integer, Double> activityData = dashboardDataService.getActivityStatistics();
+        
+        // Prepare data for chart (sample every other day for cleaner display)
+        List<String> categories = new ArrayList<>();
+        List<Number> dataPoints = new ArrayList<>();
+        double maxValue = 0;
+        
+        for (int day = 2; day <= 22; day += 2) {
+            categories.add(String.valueOf(day));
+            double amountIDR = activityData.getOrDefault(day, 0.0);
+            double amountUSD = dashboardDataService.convertToUSD(amountIDR);
+            dataPoints.add(amountUSD / 1000); // Convert to thousands for chart
+            maxValue = Math.max(maxValue, amountUSD / 1000);
+        }
+        
         // X-Axis Configuration (dates)
         XAxis xAxis = conf.getxAxis();
-        xAxis.setCategories("2", "4", "6", "8", "10", "12", "14", "16", "18", "20", "22");
+        xAxis.setCategories(categories.toArray(new String[0]));
         xAxis.setGridLineWidth(0);
         xAxis.setLineColor(new SolidColor(255, 255, 255, 0.1));
         com.vaadin.flow.component.charts.model.style.Style xStyle = new com.vaadin.flow.component.charts.model.style.Style();
@@ -364,11 +382,11 @@ public class ModernDashboardView extends Div {
         xStyle.setFontSize("11px");
         xAxis.getLabels().setStyle(xStyle);
         
-        // Y-Axis Configuration (values)
+        // Y-Axis Configuration (values) - dynamic max based on data
         YAxis yAxis = conf.getyAxis();
         yAxis.setTitle("");
         yAxis.setMin(0);
-        yAxis.setMax(50);
+        yAxis.setMax(Math.ceil(maxValue / 10) * 10 + 10); // Round up to nearest 10
         yAxis.setTickInterval(10);
         yAxis.setGridLineColor(new SolidColor(255, 255, 255, 0.1));
         yAxis.setGridLineWidth(1);
@@ -378,12 +396,10 @@ public class ModernDashboardView extends Div {
         yAxis.getLabels().setStyle(yStyle);
         yAxis.getLabels().setFormatter("function() { return this.value + 'k'; }");
         
-        // Data series
+        // Data series with real data
         DataSeries series = new DataSeries();
         series.setName("Activity");
-        series.setData(
-            new Number[]{15, 10, 8, 12, 25, 32, 22, 18, 30, 35, 25}
-        );
+        series.setData(dataPoints.toArray(new Number[0]));
         
         // Style the area and line
         PlotOptionsAreaspline plotOptions = new PlotOptionsAreaspline();
@@ -414,7 +430,7 @@ public class ModernDashboardView extends Div {
         title.addClassName("section-title");
         title.getStyle().set("margin", "0");
 
-        Span dateRange = new Span("2 Mar 22 - 22 Mar 22");
+        Span dateRange = new Span("Last 21 days");
         dateRange.getStyle()
             .set("font-size", "11px")
             .set("color", "var(--secondary-color)")
@@ -428,23 +444,62 @@ public class ModernDashboardView extends Div {
         Div activityList = new Div();
         activityList.addClassName("activity-list");
 
-        // Add date sections with transactions
-        activityList.add(createDateSection("22 Mar, 2022",
-            createActivityTransaction("Online Shop", "22 Mar, 2022 at 3:30 PM", "Shopping", "-Rp 50.000", VaadinIcon.CART, "#ef4444")
-        ));
-
-        activityList.add(createDateSection("21 Mar, 2022",
-            createActivityTransaction("Shayna Transfer", "21 Mar, 2022 at 12:30 AM", "Platform", "+Rp 5.000.000", VaadinIcon.EXCHANGE, "#22c55e"),
-            createActivityTransaction("Starbucks Graha Pos", "21 Mar, 2022 at 2:30 AM", "Food & Drinks", "-Rp 90.500", VaadinIcon.COFFEE, "#f59e0b")
-        ));
-
-        activityList.add(createDateSection("20 Mar, 2022",
-            createActivityTransaction("Starbucks CCM", "20 Mar, 2022 at 8:30 AM", "Food & Drinks", "-Rp 75.000", VaadinIcon.COFFEE, "#f59e0b"),
-            createActivityTransaction("Hire Freelancer", "21 Mar, 2022 at 9:30 AM", "Business", "-Rp 50,125.00", VaadinIcon.BRIEFCASE, "#a855f7")
-        ));
+        // Get real transactions grouped by date
+        Map<String, List<BankTransaction>> transactionsByDate = dashboardDataService.getRecentTransactions(21);
+        
+        if (transactionsByDate.isEmpty()) {
+            // Show message when no transactions
+            Span noData = new Span("No recent transactions");
+            noData.getStyle()
+                .set("color", "var(--secondary-color)")
+                .set("font-size", "14px")
+                .set("padding", "20px")
+                .set("text-align", "center")
+                .set("display", "block");
+            activityList.add(noData);
+        } else {
+            // Add date sections with real transactions
+            transactionsByDate.forEach((date, transactions) -> {
+                List<Div> transactionDivs = transactions.stream()
+                    .limit(5) // Limit to 5 transactions per date
+                    .map(this::createActivityTransactionFromData)
+                    .toList();
+                
+                if (!transactionDivs.isEmpty()) {
+                    activityList.add(createDateSection(date, transactionDivs.toArray(new Div[0])));
+                }
+            });
+        }
 
         container.add(header, activityList);
         return container;
+    }
+    
+    private Div createActivityTransactionFromData(BankTransaction transaction) {
+        String merchant = transaction.getMerchantName();
+        String category = transaction.getBudgetCategory() != null ? transaction.getBudgetCategory() : "Other";
+        double amountUSD = dashboardDataService.convertToUSD(transaction.getAmount());
+        String amountStr = (transaction.getAmount() >= 0 ? "+" : "") + dashboardDataService.formatUSD(amountUSD);
+        String categoryColor = dashboardDataService.getCategoryColor(category);
+        
+        // Determine icon based on category
+        VaadinIcon icon = getIconForCategory(category);
+        
+        // Format date and time
+        String dateTime = transaction.getTransactionDate().format(DateTimeFormatter.ofPattern("d MMM, yyyy"));
+        
+        return createActivityTransaction(merchant, dateTime, category, amountStr, icon, categoryColor);
+    }
+    
+    private VaadinIcon getIconForCategory(String category) {
+        return switch (category != null ? category.toLowerCase() : "") {
+            case "shopping", "retail" -> VaadinIcon.CART;
+            case "platform", "transfer" -> VaadinIcon.EXCHANGE;
+            case "food & drinks", "food", "dining" -> VaadinIcon.COFFEE;
+            case "business", "income" -> VaadinIcon.BRIEFCASE;
+            case "transportation", "travel" -> VaadinIcon.CAR;
+            default -> VaadinIcon.MONEY;
+        };
     }
 
     private Div createDateSection(String date, Div... transactions) {
@@ -679,18 +734,40 @@ public class ModernDashboardView extends Div {
         innerCircle.add(centerText, centerAmount);
         donutChart.add(innerCircle);
 
-        // Legend
+        // Get real expense percentages by category
+        Map<String, Double> expensePercentages = dashboardDataService.getExpensePercentages();
+        Map<String, Double> expensesByCategory = dashboardDataService.getExpensesByCategory();
+        
+        // Calculate total for center display
+        double totalExpensesIDR = expensesByCategory.values().stream().mapToDouble(Double::doubleValue).sum();
+        String totalExpensesUSD = dashboardDataService.formatUSD(dashboardDataService.convertToUSD(totalExpensesIDR));
+        
+        // Update center amount with real data
+        centerAmount.setText(totalExpensesUSD);
+        
+        // Legend with real data
         VerticalLayout legend = new VerticalLayout();
         legend.setPadding(false);
         legend.setSpacing(false);
         legend.getStyle().set("gap", "12px");
 
-        legend.add(
-            createLegendItem("Shopping", "36%", "#ef4444"),
-            createLegendItem("Platform", "17%", "#22c55e"),
-            createLegendItem("Food & Drinks", "25%", "#f59e0b"),
-            createLegendItem("Other", "22%", "#6b7280")
-        );
+        if (!expensePercentages.isEmpty()) {
+            // Add legend items for each category with real percentages
+            expensePercentages.entrySet().stream()
+                .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
+                .limit(4) // Show top 4 categories
+                .forEach(entry -> {
+                    String category = entry.getKey();
+                    String percentage = String.format("%.0f%%", entry.getValue());
+                    String color = dashboardDataService.getCategoryColor(category);
+                    legend.add(createLegendItem(category, percentage, color));
+                });
+        } else {
+            // Fallback to default if no data
+            legend.add(
+                createLegendItem("No Data", "0%", "#6b7280")
+            );
+        }
 
         chartWrapper.add(donutChart, legend);
         chartContainer.add(chartWrapper);
