@@ -1,6 +1,8 @@
 package com.budgetplanner.budget;
 
 import com.budgetplanner.budget.model.BankTransaction;
+import com.budgetplanner.budget.model.BudgetItem;
+import com.budgetplanner.budget.repository.BudgetItemRepository;
 import com.budgetplanner.budget.service.DashboardDataService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -8,16 +10,24 @@ import com.vaadin.flow.component.charts.Chart;
 import com.vaadin.flow.component.charts.model.*;
 import com.vaadin.flow.component.charts.model.style.SolidColor;
 import com.vaadin.flow.component.dependency.CssImport;
+import com.vaadin.flow.component.dialog.Dialog;
+import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.html.*;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.splitlayout.SplitLayout;
+import com.vaadin.flow.component.textfield.NumberField;
+import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,15 +43,24 @@ import java.util.Map;
 @CssImport("./styles/mobile-responsive.css")
 public class ModernDashboardView extends Div {
 
-    private final DashboardDataService dashboardDataService;
+    private static final String CATEGORY_INCOME = "INCOME";
+    private static final String CATEGORY_EXPENSES = "EXPENSES";
+    private static final String CATEGORY_BILLS = "BILLS";
+    private static final String CATEGORY_SAVINGS = "SAVINGS";
 
-    public ModernDashboardView(DashboardDataService dashboardDataService) {
+    private final DashboardDataService dashboardDataService;
+    private final BudgetItemRepository budgetItemRepository;
+
+    public ModernDashboardView(DashboardDataService dashboardDataService,
+                               BudgetItemRepository budgetItemRepository) {
         this.dashboardDataService = dashboardDataService;
+        this.budgetItemRepository = budgetItemRepository;
         
         setSizeFull();
         addClassName("modern-dashboard");
 
         createLayout();
+        addFloatingActionButton();
     }
 
     private void createLayout() {
@@ -1064,5 +1083,191 @@ public class ModernDashboardView extends Div {
         cardLabel.add(cardTitle, cardValue);
         card.add(cardIcon, cardLabel);
         return card;
+    }
+    
+    private void addFloatingActionButton() {
+        Button fab = new Button(new Icon(VaadinIcon.PLUS));
+        fab.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_LARGE);
+        fab.addClassName("modern-fab");
+        fab.getStyle()
+            .set("position", "fixed")
+            .set("bottom", "30px")
+            .set("right", "30px")
+            .set("width", "60px")
+            .set("height", "60px")
+            .set("border-radius", "50%")
+            .set("background", "linear-gradient(135deg, #00d4ff 0%, #009bb8 100%)")
+            .set("box-shadow", "0 8px 20px rgba(0, 212, 255, 0.4)")
+            .set("border", "none")
+            .set("cursor", "pointer")
+            .set("z-index", "1000")
+            .set("transition", "all 0.3s ease");
+        
+        fab.getElement().addEventListener("mouseenter", e -> {
+            fab.getStyle().set("transform", "scale(1.1)");
+            fab.getStyle().set("box-shadow", "0 12px 30px rgba(0, 212, 255, 0.6)");
+        });
+        
+        fab.getElement().addEventListener("mouseleave", e -> {
+            fab.getStyle().set("transform", "scale(1)");
+            fab.getStyle().set("box-shadow", "0 8px 20px rgba(0, 212, 255, 0.4)");
+        });
+        
+        fab.addClickListener(e -> openAddItemDialog());
+        
+        add(fab);
+    }
+    
+    private void openAddItemDialog() {
+        Dialog dialog = new Dialog();
+        dialog.addClassName("modern-dialog");
+        dialog.setWidth("500px");
+        dialog.getElement().getStyle()
+            .set("background", "#262238")
+            .set("border-radius", "20px")
+            .set("box-shadow", "0 20px 60px rgba(0, 0, 0, 0.5)");
+        
+        // Header
+        HorizontalLayout header = new HorizontalLayout();
+        header.setWidthFull();
+        header.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
+        header.setAlignItems(FlexComponent.Alignment.CENTER);
+        header.getStyle()
+            .set("padding", "20px 24px")
+            .set("border-bottom", "1px solid rgba(255,255,255,0.1)");
+        
+        H2 dialogTitle = new H2("Add Budget Item");
+        dialogTitle.getStyle()
+            .set("margin", "0")
+            .set("font-size", "24px")
+            .set("font-weight", "700")
+            .set("color", "white");
+        
+        Button closeButton = new Button(new Icon(VaadinIcon.CLOSE));
+        closeButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        closeButton.getStyle()
+            .set("color", "#9CA3AF")
+            .set("cursor", "pointer");
+        closeButton.addClickListener(e -> dialog.close());
+        
+        header.add(dialogTitle, closeButton);
+        
+        // Form content
+        VerticalLayout formContent = new VerticalLayout();
+        formContent.setSpacing(true);
+        formContent.setPadding(true);
+        formContent.getStyle().set("padding", "24px");
+        
+        // Category field
+        TextField categoryField = new TextField("Category");
+        categoryField.setPlaceholder("Enter category name");
+        categoryField.setWidthFull();
+        styleModernField(categoryField);
+        
+        // Category type select
+        Select<String> categoryTypeSelect = new Select<>();
+        categoryTypeSelect.setLabel("Category Type");
+        categoryTypeSelect.setItems(CATEGORY_INCOME, CATEGORY_EXPENSES, CATEGORY_BILLS, CATEGORY_SAVINGS);
+        categoryTypeSelect.setPlaceholder("Select type");
+        categoryTypeSelect.setWidthFull();
+        styleModernField(categoryTypeSelect);
+        
+        // Planned amount
+        NumberField plannedField = new NumberField("Planned Amount");
+        plannedField.setPlaceholder("0.00");
+        plannedField.setPrefixComponent(new Span("$"));
+        plannedField.setMin(0);
+        plannedField.setWidthFull();
+        styleModernField(plannedField);
+        
+        // Actual amount
+        NumberField actualField = new NumberField("Actual Amount");
+        actualField.setPlaceholder("0.00");
+        actualField.setPrefixComponent(new Span("$"));
+        actualField.setMin(0);
+        actualField.setWidthFull();
+        styleModernField(actualField);
+        
+        formContent.add(categoryField, categoryTypeSelect, plannedField, actualField);
+        
+        // Button layout
+        HorizontalLayout buttonLayout = new HorizontalLayout();
+        buttonLayout.setWidthFull();
+        buttonLayout.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
+        buttonLayout.setSpacing(true);
+        buttonLayout.getStyle().set("padding-top", "16px");
+        
+        Button cancelButton = new Button("Cancel");
+        cancelButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        cancelButton.getStyle()
+            .set("color", "#9CA3AF")
+            .set("border-radius", "10px");
+        cancelButton.addClickListener(e -> dialog.close());
+        
+        Button saveButton = new Button("Save Item");
+        saveButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        saveButton.getStyle()
+            .set("background", "linear-gradient(135deg, #00d4ff 0%, #009bb8 100%)")
+            .set("border-radius", "10px")
+            .set("color", "white")
+            .set("font-weight", "600")
+            .set("padding", "10px 24px");
+        
+        saveButton.addClickListener(e -> {
+            if (categoryField.isEmpty() || categoryTypeSelect.isEmpty() || 
+                plannedField.isEmpty() || actualField.isEmpty()) {
+                Notification.show("Please fill all fields", 3000, Notification.Position.TOP_CENTER)
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                return;
+            }
+            
+            saveBudgetItem(categoryField.getValue(), categoryTypeSelect.getValue(),
+                         plannedField.getValue(), actualField.getValue());
+            dialog.close();
+        });
+        
+        buttonLayout.add(cancelButton, saveButton);
+        
+        VerticalLayout dialogLayout = new VerticalLayout();
+        dialogLayout.setPadding(false);
+        dialogLayout.setSpacing(false);
+        dialogLayout.add(header, formContent, buttonLayout);
+        
+        dialog.add(dialogLayout);
+        dialog.open();
+    }
+    
+    private void styleModernField(com.vaadin.flow.component.Component field) {
+        field.getElement().getStyle()
+            .set("--lumo-contrast-10pct", "rgba(255,255,255,0.05)")
+            .set("--lumo-contrast-20pct", "rgba(255,255,255,0.1)")
+            .set("--lumo-contrast-30pct", "rgba(255,255,255,0.15)")
+            .set("--lumo-body-text-color", "white")
+            .set("--lumo-secondary-text-color", "#9CA3AF")
+            .set("--lumo-primary-color", "#00d4ff");
+    }
+    
+    private void saveBudgetItem(String category, String categoryType, Double planned, Double actual) {
+        LocalDate now = LocalDate.now();
+        BudgetItem item = new BudgetItem(
+            category,
+            planned.doubleValue(),
+            actual.doubleValue(),
+            categoryType,
+            now.getYear(),
+            now.getMonthValue()
+        );
+        
+        budgetItemRepository.save(item);
+        
+        Notification notification = Notification.show(
+            "Budget item '" + category + "' added successfully!",
+            3000,
+            Notification.Position.TOP_END
+        );
+        notification.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+        
+        // Refresh the page to show new data
+        getUI().ifPresent(ui -> ui.getPage().reload());
     }
 }
