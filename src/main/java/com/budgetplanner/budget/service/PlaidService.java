@@ -8,6 +8,7 @@ import com.plaid.client.ApiClient;
 import com.plaid.client.model.*;
 import com.plaid.client.request.PlaidApi;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import retrofit2.Response;
@@ -23,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 
 @Service
+@Primary
 @Transactional
 public class PlaidService {
 
@@ -83,6 +85,13 @@ public class PlaidService {
 
     /**
      * Create a link token for Plaid Link initialization
+     * 
+     * TODO: Fix identity_match error with newer Plaid SDK versions
+     * Currently using SDK 9.1.0 to avoid identity_match product requirement.
+     * When upgrading to newer SDK (16.0.0+), need to either:
+     * 1. Enable identity_match product in Plaid dashboard
+     * 2. Configure proper product selection to exclude identity features
+     * 3. Update LinkTokenCreateRequest parameters for new API structure
      */
     public String createLinkToken(String userId) {
         try {
@@ -92,16 +101,28 @@ public class PlaidService {
                 .language("en")
                 .user(new LinkTokenCreateRequestUser().clientUserId(userId))
                 .products(Arrays.asList(Products.TRANSACTIONS));
+                // Note: redirectUri is optional for sandbox and requires dashboard configuration
 
             Response<LinkTokenCreateResponse> response = plaidClient.linkTokenCreate(request).execute();
             
             if (response.isSuccessful() && response.body() != null) {
                 return response.body().getLinkToken();
             } else {
-                throw new RuntimeException("Failed to create link token: " + response.message());
+                // Better error handling with response body
+                String errorBody = "";
+                try {
+                    if (response.errorBody() != null) {
+                        errorBody = response.errorBody().string();
+                    }
+                } catch (IOException e) {
+                    errorBody = "Unable to read error body";
+                }
+                throw new RuntimeException("Failed to create link token: " + response.message() + " - " + errorBody);
             }
         } catch (IOException e) {
-            throw new RuntimeException("Error creating link token", e);
+            throw new RuntimeException("Error creating link token: " + e.getMessage(), e);
+        } catch (Exception e) {
+            throw new RuntimeException("Unexpected error creating link token: " + e.getMessage(), e);
         }
     }
     

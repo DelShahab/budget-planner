@@ -13,8 +13,10 @@ import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.splitlayout.SplitLayout;
 import com.vaadin.flow.component.tabs.Tab;
 import com.vaadin.flow.component.tabs.Tabs;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
@@ -33,6 +35,7 @@ import java.util.Map;
  */
 @Route(value = "recurring-transactions")
 @PageTitle("Recurring Transactions | Budget Planner")
+@CssImport("./styles/modern-dashboard.css")
 @CssImport("./styles/budget-dashboard.css")
 @CssImport("./styles/notifications.css")
 @CssImport("./styles/mobile-responsive.css")
@@ -52,44 +55,161 @@ public class RecurringTransactionView extends VerticalLayout {
         this.recurringTransactionService = recurringTransactionService;
         
         setSizeFull();
-        setPadding(true);
-        setSpacing(true);
+        setPadding(false);
+        setSpacing(false);
         addClassName("recurring-transaction-view");
         
-        createHeader();
-        createSummaryCards();
-        createTabSheet();
-        createContentArea();
+        // Apply modern dashboard dark theme
+        getStyle()
+            .set("background", "#0f0a1e")
+            .set("color", "white");
+        
+        // Create split layout with sidebar and content
+        SplitLayout splitLayout = new SplitLayout();
+        splitLayout.setSizeFull();
+        splitLayout.setSplitterPosition(5);
+        splitLayout.addToPrimary(createSidebar());
+        
+        // Create main content area
+        VerticalLayout mainContent = new VerticalLayout();
+        mainContent.setSizeFull();
+        mainContent.setPadding(true);
+        mainContent.setSpacing(true);
+        mainContent.getStyle().set("padding", "40px");
+        
+        createHeader(mainContent);
+        createSummaryCards(mainContent);
+        createTabSheet(mainContent);
+        createContentArea(mainContent);
+        
+        splitLayout.addToSecondary(mainContent);
+        add(splitLayout);
         
         refreshData();
     }
 
-    private void createHeader() {
+    private Div createSidebar() {
+        Div sidebar = new Div();
+        sidebar.addClassName("sidebar");
+        sidebar.getStyle()
+            .set("background", "#171521")
+            .set("display", "flex")
+            .set("flex-direction", "column")
+            .set("align-items", "center")
+            .set("padding", "20px 0")
+            .set("width", "90px")
+            .set("height", "100vh");
+        sidebar.getStyle().set("gap", "35px");
+
+        // Logo at top
+        Div logo = new Div();
+        logo.getStyle()
+            .set("width", "45px")
+            .set("height", "45px")
+            .set("background", "#01a1be")
+            .set("border-radius", "50%")
+            .set("display", "flex")
+            .set("align-items", "center")
+            .set("justify-content", "center")
+            .set("color", "white")
+            .set("font-size", "18px")
+            .set("font-weight", "bold")
+            .set("margin", "20px auto 0");
+        Span logoText = new Span("AM");
+        logo.add(logoText);
+
+        // Navigation icons container
+        VerticalLayout navContainer = new VerticalLayout();
+        navContainer.setPadding(false);
+        navContainer.setSpacing(false);
+        navContainer.setAlignItems(FlexComponent.Alignment.CENTER);
+        navContainer.getStyle().set("gap", "30px");
+
+        Button homeBtn = createNavButton(VaadinIcon.HOME, "Home", false);
+        homeBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("modern-dashboard")));
+        
+        Button trendsBtn = createNavButton(VaadinIcon.TRENDING_UP, "Trends", false);
+        trendsBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("trends")));
+        
+        Button recurringBtn = createNavButton(VaadinIcon.REFRESH, "Recurring", true); // Active!
+        Button savingsBtn = createNavButton(VaadinIcon.PIGGY_BANK, "Savings", false);
+        savingsBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("savings")));
+        
+        Button notificationsBtn = createNavButton(VaadinIcon.STAR, "Notifications", false);
+        notificationsBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("notifications")));
+        
+        Button userBtn = createNavButton(VaadinIcon.USER, "Profile", false);
+        userBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("user-settings")));
+        
+        Button historyBtn = createNavButton(VaadinIcon.CLOCK, "History", false);
+        historyBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("history")));
+        
+        Button settingsBtn = createNavButton(VaadinIcon.COG, "Settings", false);
+
+        navContainer.add(homeBtn, trendsBtn, recurringBtn, savingsBtn, notificationsBtn, userBtn, historyBtn, settingsBtn);
+        
+        sidebar.add(logo, navContainer);
+        return sidebar;
+    }
+
+    private Button createNavButton(VaadinIcon icon, String title, boolean active) {
+        Button btn = new Button(new Icon(icon));
+        btn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
+        btn.addClassName("nav-button");
+        btn.getElement().setProperty("title", title);
+        
+        if (active) {
+            btn.addClassName("active");
+        }
+
+        return btn;
+    }
+
+    private void createHeader(VerticalLayout container) {
         HorizontalLayout header = new HorizontalLayout();
         header.setWidthFull();
         header.setJustifyContentMode(JustifyContentMode.BETWEEN);
         header.setAlignItems(Alignment.CENTER);
+        header.getStyle()
+            .set("margin-bottom", "30px")
+            .set("padding", "20px")
+            .set("background", "rgba(255, 255, 255, 0.05)")
+            .set("border-radius", "15px");
         
         H2 title = new H2("Recurring Transactions");
         title.addClassName("view-title");
+        title.getStyle()
+            .set("color", "white")
+            .set("margin", "0")
+            .set("font-size", "28px")
+            .set("font-weight", "600");
         
         HorizontalLayout actions = new HorizontalLayout();
         actions.setSpacing(true);
         
         Button analyzeButton = new Button("Analyze Patterns", new Icon(VaadinIcon.SEARCH));
         analyzeButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        analyzeButton.getStyle()
+            .set("background", "linear-gradient(135deg, #00d4ff 0%, #009bb8 100%)")
+            .set("border", "none")
+            .set("color", "white")
+            .set("font-weight", "500")
+            .set("border-radius", "10px");
         analyzeButton.addClickListener(e -> analyzePatterns());
         
         Button refreshButton = new Button("Refresh", new Icon(VaadinIcon.REFRESH));
+        refreshButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        refreshButton.getStyle()
+            .set("border-radius", "10px");
         refreshButton.addClickListener(e -> refreshData());
         
         actions.add(analyzeButton, refreshButton);
         header.add(title, actions);
         
-        add(header);
+        container.add(header);
     }
 
-    private void createSummaryCards() {
+    private void createSummaryCards(VerticalLayout container) {
         summaryCards = new Div();
         summaryCards.addClassName("summary-cards"); // Use same class as BudgetView
         summaryCards.addClassName("mobile-responsive-cards"); // Use same responsive class
@@ -99,15 +219,26 @@ public class RecurringTransactionView extends VerticalLayout {
             .set("gap", "var(--lumo-space-m)")
             .set("margin-bottom", "var(--lumo-space-l)");
         
-        add(summaryCards);
+        container.add(summaryCards);
     }
 
-    private void createTabSheet() {
+    private void createTabSheet(VerticalLayout container) {
         tabSheet = new Tabs();
+        tabSheet.getStyle()
+            .set("background", "rgb(27 23 42)")
+            .set("border-radius", "15px")
+            .set("padding", "10px 0 10px 0px")
+            .set("width", "100%")
+            .set("margin-bottom", "20px");
         
         Tab activeTab = new Tab("Active Recurring");
         Tab dueSoonTab = new Tab("Due Soon");
         Tab overdueTab = new Tab("Overdue");
+        
+        // Style tabs
+        // activeTab.getStyle().set("color", "white");
+        // dueSoonTab.getStyle().set("color", "white");
+        // overdueTab.getStyle().set("color", "white");
         
         tabSheet.add(activeTab, dueSoonTab, overdueTab);
         tabSheet.setSelectedTab(activeTab);
@@ -117,10 +248,10 @@ public class RecurringTransactionView extends VerticalLayout {
             updateContentForTab(selectedTab);
         });
         
-        add(tabSheet);
+        container.add(tabSheet);
     }
 
-    private void createContentArea() {
+    private void createContentArea(VerticalLayout container) {
         contentArea = new VerticalLayout();
         contentArea.setSizeFull();
         contentArea.setPadding(false);
@@ -134,13 +265,19 @@ public class RecurringTransactionView extends VerticalLayout {
         // Initially show active grid
         contentArea.add(activeGrid);
         
-        add(contentArea);
+        container.add(contentArea);
     }
 
     private void createActiveGrid() {
         activeGrid = new Grid<>(RecurringTransaction.class, false);
         activeGrid.addClassName("recurring-transactions-grid");
         activeGrid.setSizeFull();
+        
+        // Apply modern dark grid styling
+        activeGrid.getStyle()
+            .set("background", "#171521")
+            .set("border-radius", "15px")
+            .set("padding", "20px");
         
         activeGrid.addColumn(RecurringTransaction::getMerchantName)
             .setHeader("Merchant")

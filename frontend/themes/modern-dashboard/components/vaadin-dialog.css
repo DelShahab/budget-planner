@@ -1,0 +1,29 @@
+/* Modern Dashboard Dialog Theme - Applied via themeFor="vaadin-dialog-overlay" */
+
+/* Style the overlay backdrop */
+[part="backdrop"] {
+    background: rgba(26, 29, 47, 0.8) !important;
+}
+
+/* Style the overlay container */
+[part="overlay"] {
+    background: rgba(26, 29, 47, 0.36) !important;
+}
+
+/* Style the content area */
+[part="content"] {
+    background: #171521 !important;
+    border-radius: 20px !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5) !important;
+    padding: 0 !important;
+}
+
+/* Additional styling for dialog when it has modern-dialog theme */
+:host([theme~="modern-dialog"]) [part="content"] {
+    background: #171521 !important;
+    border-radius: 20px !important;
+}
+
+:host([theme~="modern-dialog"]) [part="overlay"] {
+    background: transparent !important;
+}

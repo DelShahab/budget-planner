@@ -1,0 +1,13 @@
+{
+  "lumoImports": ["typography", "color", "spacing", "badge", "utility"],
+  "documentCssImport": [
+    {
+      "include": "../../styles/modern-dashboard.css"
+    }
+  ],
+  "componentCssImport": [
+    {
+      "include": "./components/vaadin-dialog.css"
+    }
+  ]
+}

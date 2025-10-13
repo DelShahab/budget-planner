@@ -1,0 +1,119 @@
+/* Override Vaadin Accordion Heading Styles */
+
+/* Style the accordion heading */
+vaadin-accordion-heading {
+    padding: 20px !important;
+    color: #fff !important;
+    font-size: 22px !important;
+}
+
+/* Style the accordion panel */
+vaadin-accordion-panel {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border-radius: 15px !important;
+    margin-bottom: 10px !important;
+}
+
+/* Style the summary part */
+vaadin-accordion-panel::part(summary) {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border-radius: 15px !important;
+    padding: 20px !important;
+    color: #fff !important;
+    font-size: 22px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+}
+
+/* Hover effect */
+vaadin-accordion-panel::part(summary):hover {
+    background: rgba(0, 212, 255, 0.15) !important;
+}
+
+/* Style the summary content */
+vaadin-accordion-panel::part(summary-content) {
+    color: #fff !important;
+}
+
+/* Style the toggle icon (chevron) */
+vaadin-accordion-panel::part(toggle) {
+    color: #00d4ff !important;
+    font-size: 20px !important;
+    transition: transform 0.3s ease !important;
+}
+
+/* Rotate chevron when opened */
+vaadin-accordion-panel[opened]::part(toggle) {
+    transform: rotate(180deg) !important;
+}
+
+/* Style the content area */
+vaadin-accordion-panel::part(content) {
+    background: rgba(255, 255, 255, 0.03) !important;
+    border-radius: 0 0 15px 15px !important;
+    padding: 0 !important;
+}
+
+/* Additional accordion styling */
+vaadin-accordion {
+    width: 100% !important;
+}
+
+vaadin-details-summary {
+    padding: 20px !important;
+    color: #fff !important;
+    font-size: 22px !important;
+}
+
+/* Override field labels to white */
+vaadin-text-field::part(label),
+vaadin-email-field::part(label),
+vaadin-text-area::part(label),
+vaadin-password-field::part(label),
+vaadin-select::part(label),
+vaadin-combo-box::part(label) {
+    color: #fff !important;
+}
+
+/* ComboBox specific styling */
+vaadin-combo-box::part(input-field) {
+    color: #fff !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+}
+
+vaadin-combo-box::part(toggle-button) {
+    color: #00d4ff !important;
+}
+
+/* Override placeholder text to white with opacity */
+vaadin-text-field::part(input-field)::placeholder,
+vaadin-email-field::part(input-field)::placeholder,
+vaadin-text-area::part(input-field)::placeholder,
+vaadin-password-field::part(input-field)::placeholder {
+    color: hsl(214deg 1.26% 62.13% / 69%) !important;
+}
+
+
+[part='input-field'] ::slotted(input,textarea) {
+    color: hsl(214deg 1.26% 62.13% / 69%) !important;
+}
+
+/* Style the input fields */
+vaadin-text-field::part(input-field),
+vaadin-email-field::part(input-field),
+vaadin-text-area::part(input-field),
+vaadin-password-field::part(input-field) {
+    color: #fff !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Checkbox labels */
+vaadin-checkbox::part(label) {
+    color: #fff !important;
+}
+
+[part='toggle']::before {
+    color: #fff !important;
+}
+    

@@ -746,3 +746,16 @@
 .dashboard-main-content::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.3);
 }
+
+
+[part='overlay'][style] .resizer-container {
+    background: #171521 !important;
+}
+
+input#input-vaadin-text-field-3 {
+    color: #fff;
+}
+
+  vaadin-tab:not([selected]) {
+    color: rgb(156, 163, 175);
+  }

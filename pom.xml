@@ -117,6 +117,24 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
+
+        <!-- SendGrid for Email notifications (Uncomment when API key is configured) -->
+        <!--
+        <dependency>
+            <groupId>com.sendgrid</groupId>
+            <artifactId>sendgrid-java</artifactId>
+            <version>4.9.3</version>
+        </dependency>
+        -->
+
+        <!-- Twilio for SMS notifications (Uncomment when credentials are configured) -->
+        <!--
+        <dependency>
+            <groupId>com.twilio.sdk</groupId>
+            <artifactId>twilio</artifactId>
+            <version>9.14.1</version>
+        </dependency>
+        -->
     </dependencies>
 
     <build>

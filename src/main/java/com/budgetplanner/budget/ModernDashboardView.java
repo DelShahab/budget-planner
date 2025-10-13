@@ -1,17 +1,25 @@
 package com.budgetplanner.budget;
 
+import com.budgetplanner.budget.model.BankAccount;
 import com.budgetplanner.budget.model.BankTransaction;
 import com.budgetplanner.budget.model.BudgetItem;
+import com.budgetplanner.budget.repository.BankAccountRepository;
 import com.budgetplanner.budget.repository.BudgetItemRepository;
+import com.budgetplanner.budget.service.BankAccountService;
 import com.budgetplanner.budget.service.DashboardDataService;
+import com.budgetplanner.budget.service.PlaidService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.charts.Chart;
 import com.vaadin.flow.component.charts.model.*;
 import com.vaadin.flow.component.charts.model.style.SolidColor;
 import com.vaadin.flow.component.dependency.CssImport;
+import com.vaadin.flow.component.dependency.JsModule;
+import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
+import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.html.*;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
@@ -26,6 +34,7 @@ import com.vaadin.flow.component.textfield.NumberField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.component.ClientCallable;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -41,6 +50,8 @@ import java.util.Map;
 @CssImport("./styles/modern-dashboard.css")
 @CssImport("./styles/budget-dashboard.css")
 @CssImport("./styles/mobile-responsive.css")
+@CssImport(value = "./themes/modern-dashboard/components/vaadin-dialog.css", themeFor = "vaadin-dialog-overlay")
+@JsModule("./plaid-link.js")
 public class ModernDashboardView extends Div {
 
     private static final String CATEGORY_INCOME = "INCOME";
@@ -50,11 +61,22 @@ public class ModernDashboardView extends Div {
 
     private final DashboardDataService dashboardDataService;
     private final BudgetItemRepository budgetItemRepository;
+    private final BankAccountService bankAccountService;
+    private final PlaidService plaidService;
+    private final BankAccountRepository bankAccountRepository;
+    
+    private Div creditCardSection;
 
     public ModernDashboardView(DashboardDataService dashboardDataService,
-                               BudgetItemRepository budgetItemRepository) {
+                               BudgetItemRepository budgetItemRepository,
+                               BankAccountService bankAccountService,
+                               PlaidService plaidService,
+                               BankAccountRepository bankAccountRepository) {
         this.dashboardDataService = dashboardDataService;
         this.budgetItemRepository = budgetItemRepository;
+        this.bankAccountService = bankAccountService;
+        this.plaidService = plaidService;
+        this.bankAccountRepository = bankAccountRepository;
         
         setSizeFull();
         addClassName("modern-dashboard");
@@ -67,7 +89,7 @@ public class ModernDashboardView extends Div {
         // Create split layout with sidebar on left and content on right
         SplitLayout splitLayout = new SplitLayout();
         splitLayout.setSizeFull();
-        splitLayout.setSplitterPosition(4); // 20% for sidebar, 80% for content
+        splitLayout.setSplitterPosition(5); // 20% for sidebar, 80% for content
         splitLayout.addClassName("dashboard-split");
 
         // Create sidebar
@@ -135,14 +157,43 @@ public class ModernDashboardView extends Div {
 
         Button homeBtn = createNavButton(VaadinIcon.HOME, "Home", true);
         Button trendsBtn = createNavButton(VaadinIcon.TRENDING_UP, "Trends", false);
-        Button refreshBtn = createNavButton(VaadinIcon.REFRESH, "Refresh", false);
-        Button playBtn = createNavButton(VaadinIcon.PLAY, "Play", false);
-        Button starBtn = createNavButton(VaadinIcon.STAR, "Favorites", false);
+        Button recurringBtn = createNavButton(VaadinIcon.REFRESH, "Recurring", false);
+        Button savingsBtn = createNavButton(VaadinIcon.PIGGY_BANK, "Savings", false);
+        Button notificationsBtn = createNavButton(VaadinIcon.STAR, "Notifications", false);
         Button userBtn = createNavButton(VaadinIcon.USER, "Profile", false);
+        
+        // Add click listeners for navigation
+        trendsBtn.addClickListener(e -> {
+            getUI().ifPresent(ui -> ui.navigate("trends"));
+        });
+        
+        userBtn.addClickListener(e -> {
+            getUI().ifPresent(ui -> ui.navigate("user-settings"));
+        });
+        
+        recurringBtn.addClickListener(e -> {
+            getUI().ifPresent(ui -> ui.navigate("recurring-transactions"));
+        });
+        
+        savingsBtn.addClickListener(e -> {
+            getUI().ifPresent(ui -> ui.navigate("savings"));
+        });
+        
+        notificationsBtn.addClickListener(e -> {
+            getUI().ifPresent(ui -> ui.navigate("notifications"));
+        });
+        
         Button historyBtn = createNavButton(VaadinIcon.CLOCK, "History", false);
+        historyBtn.addClickListener(e -> {
+            getUI().ifPresent(ui -> ui.navigate("history"));
+        });
+        
         Button settingsBtn = createNavButton(VaadinIcon.COG, "Settings", false);
+        
+        // Open Bank Account Management when settings clicked
+        settingsBtn.addClickListener(e -> openBankAccountManagement());
 
-        navContainer.add(homeBtn, trendsBtn, refreshBtn, playBtn, starBtn, userBtn, historyBtn, settingsBtn);
+        navContainer.add(homeBtn, trendsBtn, recurringBtn, savingsBtn, notificationsBtn, userBtn, historyBtn, settingsBtn);
         
         sidebar.add(logo, navContainer);
         return sidebar;
@@ -167,8 +218,8 @@ public class ModernDashboardView extends Div {
         // User greeting
         HorizontalLayout greeting = createUserGreeting();
         
-        // Credit card
-        Div creditCard = createCreditCard();
+        // Credit card - store reference for updates
+        creditCardSection = createCreditCard();
         
         // Activity Statistics
         Div activityStats = createActivityStatistics();
@@ -179,7 +230,7 @@ public class ModernDashboardView extends Div {
         Div shoppingSection = createShoppingSection();
         Div settingsSection = createSettingsSection();
 
-        column.add(greeting, creditCard, activityStats, goalsSection, monthlyPlanSection, shoppingSection, settingsSection);
+        column.add(greeting, creditCardSection, activityStats, goalsSection, monthlyPlanSection, shoppingSection, settingsSection);
         return column;
     }
 
@@ -253,55 +304,64 @@ public class ModernDashboardView extends Div {
         Div card = new Div();
         card.addClassName("credit-card");
 
+        // Get first active bank account
+        List<BankAccount> accounts = bankAccountService.getActiveBankAccounts();
+        BankAccount primaryAccount = accounts.isEmpty() ? null : accounts.get(0);
+
         // Card name section
         Div nameSection = new Div();
         nameSection.addClassName("card-name-section");
         
-        Span nameLabel = new Span("Name Card");
+        Span nameLabel = new Span("Bank Account");
         nameLabel.addClassName("card-name-label");
         
-        Span cardName = new Span("Shayna");
+        Span cardName = new Span(primaryAccount != null ? primaryAccount.getAccountName() : "No Account Linked");
         cardName.addClassName("card-name");
         
         nameSection.add(nameLabel, cardName);
 
-        // VISA logo
-        Span visaLogo = new Span("VISA");
-        visaLogo.addClassName("visa-logo");
+        // Account type logo
+        Span accountTypeLogo = new Span(primaryAccount != null ? primaryAccount.getAccountType().toUpperCase() : "");
+        accountTypeLogo.addClassName("visa-logo");
 
-        // Card number
+        // Account/Card number (last 4 digits)
         HorizontalLayout cardNumber = new HorizontalLayout();
         cardNumber.addClassName("card-number");
-        cardNumber.add(
-            new Span("••••"),
-            new Span("••••"),
-            new Span("••••"),
-            new Span("2022")
-        );
+        if (primaryAccount != null && primaryAccount.getMask() != null) {
+            cardNumber.add(
+                new Span("••••"),
+                new Span("••••"),
+                new Span("••••"),
+                new Span(primaryAccount.getMask())
+            );
+        } else {
+            cardNumber.add(new Span("No account connected"));
+        }
 
         // Card footer
         HorizontalLayout cardFooter = new HorizontalLayout();
         cardFooter.addClassName("card-footer");
 
-        Div expDate = new Div();
-        expDate.addClassName("card-exp-date");
-        Span expLabel = new Span("EXP DATE");
-        expLabel.addClassName("card-label");
-        Span expValue = new Span("12/23");
-        expValue.addClassName("card-value");
-        expDate.add(expLabel, expValue);
+        Div accountInfo = new Div();
+        accountInfo.addClassName("card-exp-date");
+        Span infoLabel = new Span("STATUS");
+        infoLabel.addClassName("card-label");
+        Span infoValue = new Span(primaryAccount != null && primaryAccount.getIsActive() ? "Active" : "Inactive");
+        infoValue.addClassName("card-value");
+        accountInfo.add(infoLabel, infoValue);
 
-        Div cvvNumber = new Div();
-        cvvNumber.addClassName("card-cvv");
-        Span cvvLabel = new Span("CVV NUMBER");
-        cvvLabel.addClassName("card-label");
-        Span cvvValue = new Span("22");
-        cvvValue.addClassName("card-value");
-        cvvNumber.add(cvvLabel, cvvValue);
+        Div institutionInfo = new Div();
+        institutionInfo.addClassName("card-cvv");
+        Span institutionLabel = new Span("BANK");
+        institutionLabel.addClassName("card-label");
+        Span institutionValue = new Span(primaryAccount != null ? 
+            primaryAccount.getInstitutionName() : "N/A");
+        institutionValue.addClassName("card-value");
+        institutionInfo.add(institutionLabel, institutionValue);
 
-        cardFooter.add(expDate, cvvNumber);
+        cardFooter.add(accountInfo, institutionInfo);
 
-        card.add(nameSection, visaLogo, cardNumber, cardFooter);
+        card.add(nameSection, accountTypeLogo, cardNumber, cardFooter);
         return card;
     }
 
@@ -1097,7 +1157,6 @@ public class ModernDashboardView extends Div {
             .set("height", "60px")
             .set("border-radius", "50%")
             .set("background", "linear-gradient(135deg, #00d4ff 0%, #009bb8 100%)")
-            .set("box-shadow", "0 8px 20px rgba(0, 212, 255, 0.4)")
             .set("border", "none")
             .set("cursor", "pointer")
             .set("z-index", "1000")
@@ -1123,13 +1182,8 @@ public class ModernDashboardView extends Div {
         dialog.addClassName("modern-dialog");
         dialog.setWidth("500px");
         
-        // Style the dialog overlay element
-        dialog.getElement().getThemeList().add("dark-overlay");
-        dialog.getElement().executeJs(
-            "this.$.overlay.style.background = '#171521';" +
-            "this.$.overlay.style.borderRadius = '20px';" +
-            "this.$.overlay.style.boxShadow = '0 20px 60px rgba(0, 0, 0, 0.5)';"
-        );
+        // Apply modern dialog theme
+        dialog.getElement().getThemeList().add("modern-dialog");
         
         // Header
         HorizontalLayout header = new HorizontalLayout();
@@ -1273,5 +1327,258 @@ public class ModernDashboardView extends Div {
         
         // Refresh the page to show new data
         getUI().ifPresent(ui -> ui.getPage().reload());
+    }
+    
+    private void openBankAccountManagement() {
+        Dialog dialog = new Dialog();
+        dialog.setWidth("900px");
+        dialog.setHeight("700px");
+        
+        // Apply modern dialog theme
+        dialog.getElement().getThemeList().add("modern-dialog");
+        
+        // Header
+        HorizontalLayout header = new HorizontalLayout();
+        header.setWidthFull();
+        header.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
+        header.setAlignItems(FlexComponent.Alignment.CENTER);
+        header.getStyle()
+            .set("padding", "20px 24px")
+            .set("border-bottom", "1px solid rgba(255,255,255,0.1)");
+        
+        H2 dialogTitle = new H2("Bank Account Management");
+        dialogTitle.getStyle()
+            .set("margin", "0")
+            .set("font-size", "24px")
+            .set("font-weight", "700")
+            .set("color", "white");
+        
+        Button closeButton = new Button(new Icon(VaadinIcon.CLOSE));
+        closeButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        closeButton.getStyle()
+            .set("color", "#9CA3AF")
+            .set("cursor", "pointer");
+        closeButton.addClickListener(e -> dialog.close());
+        
+        header.add(dialogTitle, closeButton);
+        
+        // Content
+        VerticalLayout content = new VerticalLayout();
+        content.setSpacing(true);
+        content.setPadding(true);
+        content.getStyle().set("padding", "24px");
+        
+        // Summary
+        Span accountsSummary = new Span();
+        accountsSummary.getStyle()
+            .set("color", "#9CA3AF")
+            .set("margin-bottom", "16px");
+        updateAccountsSummary(accountsSummary);
+        
+        // Action buttons
+        HorizontalLayout actions = new HorizontalLayout();
+        actions.setSpacing(true);
+        actions.getStyle().set("margin-bottom", "20px");
+        
+        Button linkAccountButton = new Button("Link Bank Account", VaadinIcon.PLUS.create());
+        linkAccountButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        linkAccountButton.getStyle()
+            .set("background", "linear-gradient(135deg, #00d4ff 0%, #009bb8 100%)")
+            .set("border", "none");
+        linkAccountButton.addClickListener(e -> {
+            // Close dialog to avoid z-index conflicts with Plaid iframe
+            dialog.close();
+            linkNewAccount();
+        });
+        
+        Button syncButton = new Button("Sync Transactions", VaadinIcon.REFRESH.create());
+        syncButton.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
+        syncButton.addClickListener(e -> syncAllTransactions());
+        
+        actions.add(linkAccountButton, syncButton);
+        
+        // Accounts grid
+        Grid<BankAccount> accountsGrid = createBankAccountsGrid();
+        accountsGrid.setItems(bankAccountService.getActiveBankAccounts());
+        
+        content.add(accountsSummary, actions, accountsGrid);
+        
+        // Footer
+        Button closeFooterButton = new Button("Close");
+        closeFooterButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        closeFooterButton.getStyle()
+            .set("color", "#9CA3AF")
+            .set("border-radius", "10px");
+        closeFooterButton.addClickListener(e -> {
+            dialog.close();
+            updateCreditCardSection();
+        });
+        
+        VerticalLayout dialogLayout = new VerticalLayout();
+        dialogLayout.setPadding(false);
+        dialogLayout.setSpacing(false);
+        dialogLayout.add(header, content, closeFooterButton);
+        
+        dialog.add(dialogLayout);
+        dialog.open();
+    }
+    
+    private Grid<BankAccount> createBankAccountsGrid() {
+        Grid<BankAccount> grid = new Grid<>(BankAccount.class, false);
+        grid.addThemeVariants(GridVariant.LUMO_ROW_STRIPES);
+        grid.setHeight("400px");
+        
+        // Style for dark theme
+        grid.getStyle()
+            .set("background", "#262238")
+            .set("border-radius", "10px")
+            .set("overflow", "hidden");
+        
+        grid.addColumn(BankAccount::getAccountName).setHeader("Account Name").setFlexGrow(1);
+        grid.addColumn(BankAccount::getAccountType).setHeader("Type").setWidth("120px");
+        grid.addColumn(BankAccount::getInstitutionName).setHeader("Institution").setFlexGrow(1);
+        grid.addColumn(BankAccount::getMask).setHeader("Account #").setWidth("100px");
+        grid.addColumn(account -> account.getIsActive() ? "Active" : "Inactive")
+            .setHeader("Status").setWidth("100px");
+        
+        grid.addComponentColumn(account -> {
+            Button removeBtn = new Button("Remove", VaadinIcon.TRASH.create());
+            removeBtn.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
+            removeBtn.addClickListener(e -> confirmRemoveAccount(account, grid));
+            return removeBtn;
+        }).setHeader("Actions").setWidth("120px");
+        
+        return grid;
+    }
+    
+    private void updateAccountsSummary(Span summarySpan) {
+        List<BankAccount> accounts = bankAccountService.getActiveBankAccounts();
+        summarySpan.setText(String.format("%d active account(s) connected", accounts.size()));
+    }
+    
+    private void linkNewAccount() {
+        try {
+            String linkToken = plaidService.createLinkToken("user-id");
+            
+            // Show loading notification
+            Notification loadingNotif = Notification.show("Opening Plaid Link...",
+                    3000, Notification.Position.TOP_CENTER);
+            loadingNotif.addThemeVariants(NotificationVariant.LUMO_PRIMARY);
+            
+            // Call JavaScript to open Plaid Link
+            getElement().executeJs(
+                "window.initPlaidLink($0, " +
+                    // Success callback
+                    "function(publicToken, metadata) {" +
+                    "  $1.$server.onPlaidSuccess(publicToken, metadata);" +
+                    "}," +
+                    // Exit callback  
+                    "function(success, message) {" +
+                    "  if (!success) {" +
+                    "    $1.$server.onPlaidExit(message);" +
+                    "  }" +
+                    "}" +
+                ");",
+                linkToken,
+                getElement()
+            );
+                    
+        } catch (Exception e) {
+            Notification.show("Error creating link token: " + e.getMessage(),
+                    3000, Notification.Position.TOP_CENTER)
+                .addThemeVariants(NotificationVariant.LUMO_ERROR);
+        }
+    }
+    
+    @ClientCallable
+    public void onPlaidSuccess(String publicToken, String metadataJson) {
+        try {
+            // Exchange public token for access token and create bank account
+            plaidService.exchangePublicToken(publicToken);
+            
+            // Refresh the credit card section to show new account
+            updateCreditCardSection();
+            
+            // Show success notification
+            Notification successNotif = Notification.show(
+                "✅ Bank account linked successfully! Your dashboard has been updated.", 
+                5000, 
+                Notification.Position.TOP_CENTER
+            );
+            successNotif.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+            
+        } catch (Exception e) {
+            Notification.show("❌ Error linking account: " + e.getMessage(),
+                    5000, Notification.Position.TOP_CENTER)
+                .addThemeVariants(NotificationVariant.LUMO_ERROR);
+        }
+    }
+    
+    @ClientCallable
+    public void onPlaidExit(String message) {
+        Notification.show("Plaid Link closed: " + message,
+                2000, Notification.Position.TOP_CENTER)
+            .addThemeVariants(NotificationVariant.LUMO_CONTRAST);
+    }
+    
+    private void syncAllTransactions() {
+        List<BankAccount> accounts = bankAccountService.getActiveBankAccounts();
+        if (accounts.isEmpty()) {
+            Notification.show("No active accounts to sync", 3000, Notification.Position.TOP_CENTER)
+                .addThemeVariants(NotificationVariant.LUMO_CONTRAST);
+            return;
+        }
+        
+        accounts.forEach(account -> {
+            try {
+                plaidService.syncTransactionsForAccount(account);
+            } catch (Exception e) {
+                Notification.show("Error syncing " + account.getAccountName() + ": " + e.getMessage(),
+                        3000, Notification.Position.TOP_CENTER)
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            }
+        });
+        
+        Notification.show("Transactions synced successfully!", 3000, Notification.Position.TOP_END)
+            .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+            
+        // Refresh the page to show new data
+        getUI().ifPresent(ui -> ui.getPage().reload());
+    }
+    
+    private void confirmRemoveAccount(BankAccount account, Grid<BankAccount> grid) {
+        ConfirmDialog confirmDialog = new ConfirmDialog();
+        confirmDialog.setHeader("Remove Bank Account");
+        confirmDialog.setText("Are you sure you want to remove " + account.getAccountName() + "?");
+        
+        confirmDialog.setCancelable(true);
+        confirmDialog.addCancelListener(e -> confirmDialog.close());
+        
+        confirmDialog.setConfirmText("Remove");
+        confirmDialog.addConfirmListener(e -> {
+            try {
+                plaidService.removeBankAccount(account.getId());
+                grid.setItems(bankAccountService.getActiveBankAccounts());
+                
+                Notification.show("Account removed successfully", 3000, Notification.Position.TOP_END)
+                    .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+                    
+                updateCreditCardSection();
+            } catch (Exception ex) {
+                Notification.show("Error removing account: " + ex.getMessage(),
+                        3000, Notification.Position.TOP_CENTER)
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            }
+        });
+        
+        confirmDialog.open();
+    }
+    
+    private void updateCreditCardSection() {
+        if (creditCardSection != null) {
+            Div newCard = createCreditCard();
+            creditCardSection.removeAll();
+            newCard.getChildren().forEach(creditCardSection::add);
+        }
     }
 }
