@@ -117,7 +117,8 @@ html, body {
 /* User Profile Section - Bottom positioned */
 .user-profile-section {
     margin-top: auto;
-    padding: var(--lumo-space-s);
+    padding: 25px 0px 30px 0px;
+    /* padding: var(--lumo-space-s); */
     border-top: 1px solid var(--lumo-contrast-10pct);
     flex-shrink: 0;
 }
@@ -163,7 +164,7 @@ html, body {
 
 /* Context Menu Dark Theme Styling */
 vaadin-context-menu-overlay {
-    --lumo-base-color: var(--lumo-shade-5pct);
+    /* --lumo-base-color: var(--lumo-shade-5pct); */
     --lumo-contrast-5pct: var(--lumo-shade-10pct);
     --lumo-contrast-10pct: var(--lumo-shade-20pct);
     --lumo-primary-text-color: var(--lumo-header-text-color);

@@ -4,8 +4,19 @@ import { css, unsafeCSS, registerStyles } from '@vaadin/vaadin-themable-mixin';
 import $cssFromFile_0 from 'Frontend/styles/budget-dashboard.css?inline';
 
 injectGlobalCss($cssFromFile_0.toString(), 'CSSImport end', document);
+import $cssFromFile_1 from 'Frontend/styles/notifications.css?inline';
+
+injectGlobalCss($cssFromFile_1.toString(), 'CSSImport end', document);
+import $cssFromFile_2 from 'Frontend/styles/mobile-responsive.css?inline';
+
+injectGlobalCss($cssFromFile_2.toString(), 'CSSImport end', document);
+import $cssFromFile_3 from 'Frontend/styles/modern-dashboard.css?inline';
+
+injectGlobalCss($cssFromFile_3.toString(), 'CSSImport end', document);
 import '@vaadin/polymer-legacy-adapter/style-modules.js';
 import '@vaadin/vertical-layout/theme/lumo/vaadin-vertical-layout.js';
+import '@vaadin/dialog/theme/lumo/vaadin-dialog.js';
+import 'Frontend/generated/jar-resources/flow-component-renderer.js';
 import '@vaadin/common-frontend/ConnectionIndicator.js';
 import '@vaadin/accordion/theme/lumo/vaadin-accordion.js';
 import '@vaadin/details/theme/lumo/vaadin-details.js';
@@ -20,7 +31,6 @@ import '@vaadin/charts/theme/lumo/vaadin-chart.js';
 import '@vaadin/checkbox/theme/lumo/vaadin-checkbox.js';
 import '@vaadin/checkbox-group/theme/lumo/vaadin-checkbox-group.js';
 import '@vaadin/combo-box/theme/lumo/vaadin-combo-box.js';
-import 'Frontend/generated/jar-resources/flow-component-renderer.js';
 import 'Frontend/generated/jar-resources/comboBoxConnector.js';
 import '@vaadin/multi-select-combo-box/theme/lumo/vaadin-multi-select-combo-box.js';
 import '@vaadin/confirm-dialog/theme/lumo/vaadin-confirm-dialog.js';
@@ -33,7 +43,6 @@ import 'Frontend/generated/jar-resources/datepickerConnector.js';
 import '@vaadin/date-time-picker/theme/lumo/vaadin-date-time-picker.js';
 import '@vaadin/time-picker/theme/lumo/vaadin-time-picker.js';
 import 'Frontend/generated/jar-resources/vaadin-time-picker/timepickerConnector.js';
-import '@vaadin/dialog/theme/lumo/vaadin-dialog.js';
 import 'Frontend/generated/jar-resources/dndConnector.js';
 import '@vaadin/field-highlighter/theme/lumo/vaadin-field-highlighter.js';
 import '@vaadin/form-layout/theme/lumo/vaadin-form-layout.js';

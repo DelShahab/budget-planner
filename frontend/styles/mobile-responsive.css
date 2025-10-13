@@ -1,0 +1,429 @@
+/* Mobile-First Responsive Design for Budget Planner */
+
+/* Mobile Breakpoints */
+:root {
+    --mobile-breakpoint: 768px;
+    --tablet-breakpoint: 1024px;
+    --desktop-breakpoint: 1200px;
+    
+    /* Touch-friendly sizes */
+    --touch-target-size: 44px;
+    --mobile-padding: 12px;
+    --mobile-gap: 8px;
+}
+
+/* Base Mobile-First Styles */
+.budget-dashboard {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* Mobile Navigation Toggle */
+.mobile-nav-toggle {
+    display: none;
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 1000;
+    background: var(--lumo-primary-color);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: var(--touch-target-size);
+    height: var(--touch-target-size);
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+/* Mobile Sidebar Overlay */
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 999;
+}
+
+/* Responsive Sidebar */
+.sidebar {
+    transition: transform 0.3s ease;
+}
+
+/* Summary Cards Mobile Layout */
+.summary-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--mobile-gap);
+    margin-bottom: var(--lumo-space-m);
+}
+
+.summary-card {
+    border-radius: var(--lumo-border-radius-m) !important;
+    border: 1px solid var(--lumo-contrast-10pct) !important;
+    min-height: 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* Touch-Friendly Interactive Elements */
+.touch-target {
+    min-height: var(--touch-target-size);
+    min-width: var(--touch-target-size);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Mobile Navigation Tree */
+.navigation-tree {
+    font-size: var(--lumo-font-size-m);
+}
+
+.navigation-tree vaadin-grid-tree-toggle {
+    padding: var(--mobile-padding);
+}
+
+/* Mobile Charts Container */
+.mobile-chart-container {
+    width: 100%;
+    height: 250px;
+    margin-bottom: var(--lumo-space-m);
+}
+
+.chart-container {
+    border-radius: var(--lumo-border-radius-m);
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Mobile Grid Adjustments */
+.mobile-grid {
+    font-size: var(--lumo-font-size-s);
+}
+
+.mobile-grid vaadin-grid-cell-content {
+    padding: var(--mobile-padding);
+}
+
+.mobile-grid-container {
+    margin-bottom: var(--lumo-space-m);
+    border-radius: var(--lumo-border-radius-m);
+    overflow: hidden;
+}
+
+.mobile-responsive-grids {
+    gap: var(--mobile-gap);
+}
+
+.mobile-responsive-cards {
+    gap: var(--mobile-gap);
+}
+
+/* Mobile Form Layout */
+.mobile-form {
+    padding: var(--mobile-padding);
+}
+
+.mobile-form vaadin-form-item {
+    margin-bottom: var(--lumo-space-s);
+}
+
+/* Mobile Button Adjustments */
+.mobile-button {
+    min-height: var(--touch-target-size);
+    padding: var(--mobile-padding) var(--lumo-space-m);
+    font-size: var(--lumo-font-size-m);
+}
+
+/* Floating Action Button - Mobile Optimized */
+.floating-add-button {
+    position: fixed !important;
+    bottom: 20px !important;
+    right: 20px !important;
+    width: 56px !important;
+    height: 56px !important;
+    border-radius: 50% !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+    z-index: 100 !important;
+}
+
+/* Mobile Notification Bell */
+.notification-bell {
+    width: var(--touch-target-size) !important;
+    height: var(--touch-target-size) !important;
+}
+
+/* ========================================
+   TABLET STYLES (768px and up)
+   ======================================== */
+@media (min-width: 768px) {
+    .budget-dashboard {
+        flex-direction: row;
+    }
+    
+    .sidebar {
+        width: 200px;
+        position: relative;
+        transform: translateX(0);
+    }
+    
+    .mobile-nav-toggle {
+        display: none;
+    }
+    
+    .sidebar-overlay {
+        display: none !important;
+    }
+    
+    .summary-cards {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0;
+    }
+    
+    .summary-card {
+        border-radius: 0 !important;
+        border-right: none !important;
+    }
+    
+    .summary-card:first-child {
+        border-top-left-radius: var(--lumo-border-radius-m) !important;
+        border-bottom-left-radius: var(--lumo-border-radius-m) !important;
+    }
+    
+    .summary-card:last-child {
+        border-top-right-radius: var(--lumo-border-radius-m) !important;
+        border-bottom-right-radius: var(--lumo-border-radius-m) !important;
+        border-right: 1px solid var(--lumo-contrast-10pct) !important;
+    }
+}
+
+/* ========================================
+   MOBILE STYLES (767px and below)
+   ======================================== */
+@media (max-width: 767px) {
+    /* Show mobile navigation toggle */
+    .mobile-nav-toggle {
+        display: flex;
+    }
+    
+    /* Hide sidebar by default on mobile */
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 280px;
+        height: 100vh;
+        z-index: 1000;
+        transform: translateX(-100%);
+        background: var(--lumo-base-color);
+        box-shadow: 2px 0 8px rgba(0,0,0,0.3);
+    }
+    
+    /* Show sidebar when active */
+    .sidebar.mobile-active {
+        transform: translateX(0);
+    }
+    
+    /* Show overlay when sidebar is active */
+    .sidebar.mobile-active + .sidebar-overlay {
+        display: block;
+    }
+    
+    /* Main content adjustments */
+    .main-dashboard {
+        width: 100%;
+        height: 100vh;
+        margin: 0;
+        border-radius: 0;
+        padding: var(--mobile-padding);
+        padding-top: calc(var(--touch-target-size) + 20px);
+    }
+    
+    /* Mobile summary cards - stack vertically on very small screens */
+    @media (max-width: 480px) {
+        .summary-cards {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    /* Mobile chart containers */
+    .chart-container {
+        height: 200px;
+        margin-bottom: var(--lumo-space-m);
+    }
+    
+    /* Mobile category grids - stack vertically */
+    .mobile-responsive-grids {
+        flex-direction: column !important;
+        gap: var(--lumo-space-m) !important;
+    }
+    
+    .category-grid-container {
+        margin-bottom: 0;
+        width: 100% !important;
+        flex: none !important;
+    }
+    
+    /* Make grids more compact on mobile */
+    .mobile-grid-container vaadin-grid {
+        font-size: var(--lumo-font-size-s);
+        --lumo-space-xs: 4px;
+        --lumo-space-s: 8px;
+    }
+    
+    .mobile-grid-container .grid-header {
+        padding: var(--mobile-padding);
+        font-size: var(--lumo-font-size-m);
+        font-weight: 600;
+        text-align: center;
+        background: var(--lumo-contrast-5pct);
+        border-bottom: 1px solid var(--lumo-contrast-10pct);
+    }
+    
+    /* Hide less important columns on mobile */
+    .mobile-hide {
+        display: none !important;
+    }
+    
+    /* Stack form layouts vertically */
+    .form-layout {
+        display: flex;
+        flex-direction: column;
+        gap: var(--lumo-space-s);
+    }
+    
+    /* Mobile dialog adjustments */
+    vaadin-dialog-overlay {
+        padding: var(--mobile-padding);
+    }
+    
+    vaadin-dialog-overlay .dialog-content {
+        width: calc(100vw - 32px);
+        max-width: none;
+        margin: 0;
+    }
+    
+    /* Mobile notification center */
+    .notification-center-dialog {
+        width: calc(100vw - 32px) !important;
+        height: calc(100vh - 64px) !important;
+        max-width: none !important;
+        max-height: none !important;
+    }
+    
+    /* Touch-friendly user profile section */
+    .user-profile-section {
+        padding: var(--lumo-space-m) 0;
+    }
+    
+    .profile-container {
+        padding: var(--mobile-padding);
+        min-height: var(--touch-target-size);
+    }
+    
+    /* Mobile menu button */
+    .menu-button {
+        min-width: var(--touch-target-size);
+        width: var(--touch-target-size);
+        height: var(--touch-target-size);
+    }
+}
+
+/* ========================================
+   DESKTOP STYLES (1024px and up)
+   ======================================== */
+@media (min-width: 1024px) {
+    .sidebar {
+        width: 240px;
+    }
+    
+    .main-dashboard {
+        padding: var(--lumo-space-l);
+    }
+    
+    .summary-cards {
+        margin-bottom: var(--lumo-space-xl);
+    }
+    
+    /* Larger charts on desktop */
+    .chart-container {
+        height: 300px;
+    }
+}
+
+/* ========================================
+   LARGE DESKTOP STYLES (1200px and up)
+   ======================================== */
+@media (min-width: 1200px) {
+    .sidebar {
+        width: 280px;
+    }
+    
+    .summary-cards {
+        gap: var(--lumo-space-s);
+    }
+    
+    .summary-card {
+        border-radius: var(--lumo-border-radius-m) !important;
+        border: 1px solid var(--lumo-contrast-10pct) !important;
+    }
+    
+    /* Even larger charts on large screens */
+    .chart-container {
+        height: 350px;
+    }
+}
+
+/* ========================================
+   ACCESSIBILITY & TOUCH IMPROVEMENTS
+   ======================================== */
+
+/* Improve touch targets */
+@media (pointer: coarse) {
+    .touch-target,
+    vaadin-button,
+    vaadin-text-field,
+    vaadin-select,
+    .navigation-tree vaadin-grid-tree-toggle {
+        min-height: var(--touch-target-size);
+        min-width: var(--touch-target-size);
+    }
+}
+
+/* Improve focus indicators for keyboard navigation */
+@media (prefers-reduced-motion: no-preference) {
+    .sidebar,
+    .mobile-nav-toggle,
+    .floating-add-button {
+        transition: all 0.3s ease;
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .sidebar,
+    .summary-card,
+    .main-dashboard {
+        border-width: 2px;
+    }
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+    .sidebar,
+    .mobile-nav-toggle,
+    .floating-add-button,
+    .notification-bell {
+        transition: none;
+    }
+    
+    .notification-pulse {
+        animation: none;
+    }
+}

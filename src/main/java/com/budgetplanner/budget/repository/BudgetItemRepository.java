@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface BudgetItemRepository extends JpaRepository<BudgetItem, Long> {
@@ -30,4 +31,7 @@ public interface BudgetItemRepository extends JpaRepository<BudgetItem, Long> {
     
     // Delete all budget items for a specific year and month
     void deleteByYearAndMonth(Integer year, Integer month);
+    
+    // Find budget item by category, category type, year and month
+    Optional<BudgetItem> findByCategoryAndCategoryTypeAndYearAndMonth(String category, String categoryType, Integer year, Integer month);
 }

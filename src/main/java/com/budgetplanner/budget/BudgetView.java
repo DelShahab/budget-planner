@@ -1,6 +1,13 @@
 package com.budgetplanner.budget;
 
 import com.budgetplanner.budget.model.BudgetItem;
+import com.budgetplanner.budget.service.BankAccountService;
+import com.budgetplanner.budget.service.PlaidService;
+import com.budgetplanner.budget.view.BankAccountManagementDialog;
+import com.budgetplanner.budget.view.TransactionCategorizationDialog;
+import com.budgetplanner.budget.view.ManualTransactionDialog;
+import com.budgetplanner.budget.view.NotificationCenterDialog;
+import com.budgetplanner.budget.service.AIAdvisoryService;
 import com.vaadin.flow.component.charts.Chart;
 import com.vaadin.flow.component.charts.model.*;
 import com.vaadin.flow.component.charts.model.style.SolidColor;
@@ -14,22 +21,25 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.splitlayout.SplitLayout;
 import com.vaadin.flow.component.button.Button;
-import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.textfield.NumberField;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.icon.Icon;
+import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.KeyModifier;
 import com.vaadin.flow.component.Shortcuts;
 import com.vaadin.flow.component.treegrid.TreeGrid;
+import com.vaadin.flow.component.upload.Upload;
+import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.data.provider.hierarchy.TreeData;
 import com.vaadin.flow.data.provider.hierarchy.TreeDataProvider;
 import com.vaadin.flow.router.Route;
-import com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment;
-import com.vaadin.flow.component.orderedlayout.FlexComponent.JustifyContentMode;
+import com.vaadin.flow.theme.lumo.Lumo;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.contextmenu.ContextMenu;
 import com.vaadin.flow.component.contextmenu.MenuItem;
@@ -38,19 +48,18 @@ import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.avatar.Avatar;
-import com.vaadin.flow.component.html.Image;
-import com.vaadin.flow.theme.lumo.Lumo;
 import java.io.*;
-import java.util.regex.Pattern;
-import java.util.regex.Matcher;
 
 import java.time.LocalDate;
 import java.time.Month;
 import java.time.Year;
+import java.time.YearMonth;
 import java.util.*;
 
 @Route("")
 @CssImport("./styles/budget-dashboard.css")
+@CssImport("./styles/notifications.css")
+@CssImport("./styles/mobile-responsive.css")
 public class BudgetView extends VerticalLayout {
 
     // Constants for category types
@@ -114,9 +123,23 @@ public class BudgetView extends VerticalLayout {
 
     // Sample data for demonstration
     private transient List<BudgetItem> sampleBudgetItems;
+    
+    // Bank integration services
+    private final BankAccountService bankAccountService;
+    private final PlaidService plaidService;
+    private final AIAdvisoryService aiAdvisoryService;
+    
+    // Notification bell button
+    private Button notificationBellButton;
+    
+    // Mobile navigation
+    private Button mobileNavToggle;
+    private Div sidebarOverlay;
 
-
-    public BudgetView() {
+    public BudgetView(BankAccountService bankAccountService, PlaidService plaidService, AIAdvisoryService aiAdvisoryService) {
+        this.bankAccountService = bankAccountService;
+        this.plaidService = plaidService;
+        this.aiAdvisoryService = aiAdvisoryService;
         // Enable dark theme
         getElement().setAttribute("theme", Lumo.DARK);
         
@@ -215,10 +238,11 @@ public class BudgetView extends VerticalLayout {
         sidebar.setWidth("180px");
         sidebar.setHeight("100%");
         
-        // Month/Year header
-        monthHeader = new H2();
-        updateMonthHeader();
-        monthHeader.addClassName("month-header");
+        // Add mobile navigation support
+        setupMobileNavigation();
+        
+        // Header layout with month/year and notification bell
+        HorizontalLayout headerLayout = createSidebarHeader();
         
         Span budgetLabel = new Span("BUDGET DASHBOARD");
         budgetLabel.addClassName("budget-label");
@@ -232,7 +256,7 @@ public class BudgetView extends VerticalLayout {
         // User profile section (will be positioned at bottom via CSS)
         Div userProfileSection = createUserProfileSection();
         
-        sidebar.add(monthHeader, budgetLabel, navigationTree, userProfileSection);
+        sidebar.add(headerLayout, budgetLabel, navigationTree, userProfileSection);
     }
 
     private void buildMainDashboard() {
@@ -285,11 +309,13 @@ public class BudgetView extends VerticalLayout {
         addItemButton = new Button( VaadinIcon.PLUS.create());
         addItemButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         addItemButton.addClassName("floating-add-button");
-        addItemButton.getElement().setProperty("title", "Add Budget Item (Ctrl+N)");
-        addItemButton.addClickListener(e -> showCategorySelectionDialog());
+        addItemButton.addClassName("mobile-button");
+        addItemButton.addClassName("touch-target");
+        addItemButton.getElement().setProperty("title", "Add Manual Transaction (Ctrl+N)");
+        addItemButton.addClickListener(e -> openManualTransactionDialog());
         
         // Add keyboard shortcut for add button
-        Shortcuts.addShortcutListener(this, this::showCategorySelectionDialog, Key.KEY_N, KeyModifier.CONTROL);
+        Shortcuts.addShortcutListener(this, () -> openManualTransactionDialog(), Key.KEY_N, KeyModifier.CONTROL);
         
         mainContent.add(summaryCards, topRow, bottomRow, addItemButton);
         mainContent.setFlexGrow(0, summaryCards);
@@ -305,6 +331,7 @@ public class BudgetView extends VerticalLayout {
         layout.setPadding(false);
         layout.setMargin(false);
         layout.addClassName("summary-cards");
+        layout.addClassName("mobile-responsive-cards");
         
         // Create summary cards
         Div rolloverCard = createSummaryCard("ROLLOVER", ZERO_CURRENCY, "rollover-card");
@@ -419,6 +446,8 @@ public class BudgetView extends VerticalLayout {
     private Chart createCashFlowChart() {
         Chart chart = new Chart(ChartType.COLUMN);
         chart.addClassName("cash-flow-chart");
+        chart.addClassName("mobile-chart-container");
+        chart.addClassName("chart-container");
         chart.setHeight(CHART_HEIGHT);
         chart.setWidthFull();
 
@@ -494,15 +523,75 @@ public class BudgetView extends VerticalLayout {
     }
 
     private List<BudgetItem> getCurrentPeriodItems() {
-        return sampleBudgetItems.stream()
+        return getCombinedBudgetData();
+    }
+    
+    /**
+     * Combines sample budget data with real transaction data from bank accounts
+     */
+    private List<BudgetItem> getCombinedBudgetData() {
+        // Get sample data for current period
+        List<BudgetItem> sampleItems = sampleBudgetItems.stream()
             .filter(item -> item.getYear().equals(currentYear.getValue()) && 
                            item.getMonth().equals(currentMonth.getValue()))
             .toList();
+        
+        // Get real transaction data from bank accounts for current period
+        try {
+            YearMonth yearMonth = YearMonth.of(currentYear.getValue(), currentMonth.getValue());
+            List<BudgetItem> realTransactionItems = bankAccountService.generateBudgetItemsFromTransactions(yearMonth);
+            
+            // Combine sample data with real transaction data
+            // Real transaction data takes precedence - update sample items with real amounts
+            Map<String, BudgetItem> combinedItems = new HashMap<>();
+            
+            // Start with sample items (provides planned amounts and structure)
+            for (BudgetItem sampleItem : sampleItems) {
+                String key = sampleItem.getCategoryType() + ":" + sampleItem.getCategory();
+                combinedItems.put(key, new BudgetItem(
+                    sampleItem.getCategory(),
+                    sampleItem.getPlanned(),
+                    sampleItem.getActual(), // Will be overridden by real data if available
+                    sampleItem.getCategoryType(),
+                    sampleItem.getYear(),
+                    sampleItem.getMonth()
+                ));
+            }
+            
+            // Override with real transaction data (provides actual amounts)
+            for (BudgetItem realItem : realTransactionItems) {
+                String key = realItem.getCategoryType() + ":" + realItem.getCategory();
+                if (combinedItems.containsKey(key)) {
+                    // Update existing item with real actual amount
+                    BudgetItem existingItem = combinedItems.get(key);
+                    existingItem.setActual(realItem.getActual());
+                } else {
+                    // Add new item from real transactions (use actual as planned if no sample data)
+                    combinedItems.put(key, new BudgetItem(
+                        realItem.getCategory(),
+                        realItem.getActual(), // Use actual as planned for new items
+                        realItem.getActual(),
+                        realItem.getCategoryType(),
+                        realItem.getYear(),
+                        realItem.getMonth()
+                    ));
+                }
+            }
+            
+            return new ArrayList<>(combinedItems.values());
+            
+        } catch (Exception e) {
+            // If there's an error getting real data, fall back to sample data
+            System.err.println("Error getting real transaction data, using sample data: " + e.getMessage());
+            return sampleItems;
+        }
     }
 
     private Chart createAllocationChart() {
         Chart chart = new Chart(ChartType.PIE);
         chart.addClassName("allocation-chart");
+        chart.addClassName("mobile-chart-container");
+        chart.addClassName("chart-container");
         chart.setHeight(CHART_HEIGHT);
         chart.setWidthFull();
 
@@ -577,6 +666,7 @@ public class BudgetView extends VerticalLayout {
         layout.setSizeFull();
         layout.setSpacing(true);
         layout.addClassName("category-grids");
+        layout.addClassName("mobile-responsive-grids");
         
         // Create category grids
         VerticalLayout incomeContainer = createCategoryGridWithHeader(CATEGORY_INCOME);
@@ -591,6 +681,7 @@ public class BudgetView extends VerticalLayout {
     private VerticalLayout createCategoryGridWithHeader(String category) {
         VerticalLayout container = new VerticalLayout();
         container.addClassName("category-grid-container");
+        container.addClassName("mobile-grid-container");
         container.addClassName(category.toLowerCase() + "-container");
         container.setSpacing(false);
         container.setPadding(false);
@@ -609,7 +700,11 @@ public class BudgetView extends VerticalLayout {
         grid.setWidthFull();
         
         // Columns with responsive sizing
-        grid.addColumn(BudgetItem::getCategory).setHeader("Category").setFlexGrow(2).setResizable(true);
+        grid.addColumn(BudgetItem::getCategory)
+            .setHeader("Category")
+            .setFlexGrow(2)
+            .setResizable(true);
+        
         grid.addColumn(item -> String.format(CURRENCY_FORMAT, item.getPlanned())).setHeader(HEADER_PLANNED).setFlexGrow(1).setResizable(true);
         grid.addColumn(item -> String.format(CURRENCY_FORMAT, item.getActual())).setHeader(HEADER_ACTUAL).setFlexGrow(1).setResizable(true);
         grid.addColumn(item -> {
@@ -618,6 +713,12 @@ public class BudgetView extends VerticalLayout {
         }).setHeader("Progress").setFlexGrow(1).setResizable(true);
         
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
+        
+        // Add click listener to open transaction categorization modal
+        grid.addItemClickListener(event -> {
+            BudgetItem item = event.getItem();
+            openTransactionCategorizationModal(item.getCategory(), item.getCategoryType());
+        });
         
         // Add double-click listener for editing items with category context
         grid.addItemDoubleClickListener(event -> showFormPanel(event.getItem(), category));
@@ -672,6 +773,12 @@ public class BudgetView extends VerticalLayout {
         contextMenu.setOpenOnClick(true); // Enable single click to open
         
         // Add menu items with proper dark theme icons
+        MenuItem bankAccountItem = contextMenu.addItem("Manage Bank Accounts", e -> openBankAccountManagement());
+        Icon bankIcon = VaadinIcon.INSTITUTION.create();
+        bankIcon.setSize("16px");
+        bankIcon.getStyle().set("color", "var(--lumo-secondary-text-color)");
+        bankAccountItem.addComponentAsFirst(bankIcon);
+        
         MenuItem uploadItem = contextMenu.addItem("Upload Bank Statement", e -> openUploadDialog());
         Icon uploadIcon = VaadinIcon.UPLOAD_ALT.create();
         uploadIcon.setSize("16px");
@@ -937,11 +1044,8 @@ public class BudgetView extends VerticalLayout {
     }
 
     private void refreshDashboard() {
-        // Filter data for current period
-        List<BudgetItem> currentPeriodItems = sampleBudgetItems.stream()
-                .filter(item -> item.getYear().equals(currentYear.getValue()) && 
-                               item.getMonth().equals(currentMonth.getValue()))
-                .toList();
+        // Get real transaction data from bank accounts and combine with sample data
+        List<BudgetItem> currentPeriodItems = getCombinedBudgetData();
         
         // Update category grids
         List<BudgetItem> incomeItems = currentPeriodItems.stream()
@@ -987,6 +1091,14 @@ public class BudgetView extends VerticalLayout {
         if (savingsTotal != null) savingsTotal.setText(String.format(CURRENCY_FORMAT, savingsSum));
         if (debtTotal != null) debtTotal.setText(String.format(CURRENCY_FORMAT, debtSum));
         if (leftoverTotal != null) leftoverTotal.setText(String.format(CURRENCY_FORMAT, leftoverAmount));
+        
+        // Show AI Advisory notifications
+        showAIAdvisoryNotifications();
+        
+        // Update notification bell badge
+        if (notificationBellButton != null) {
+            updateNotificationBadge();
+        }
     }
     
     private double calculateRolloverAmount() {
@@ -1175,26 +1287,250 @@ public class BudgetView extends VerticalLayout {
         hideFormPanel();
     }
     
-    private void showCategorySelectionDialog() {
-        // Create a simple context menu for category selection
-        Button incomeBtn = new Button("Add to Income", VaadinIcon.PLUS.create());
-        incomeBtn.addThemeVariants(ButtonVariant.LUMO_SMALL);
-        incomeBtn.addClickListener(e -> showFormPanel(null, CATEGORY_INCOME));
+    /**
+     * Open the manual transaction dialog for adding new transactions
+     */
+    private void openManualTransactionDialog() {
+        ManualTransactionDialog dialog = new ManualTransactionDialog(
+            bankAccountService,
+            (result) -> refreshDashboard() // Refresh dashboard when transaction is added
+        );
         
-        Button expensesBtn = new Button("Add to Expenses", VaadinIcon.PLUS.create());
-        expensesBtn.addThemeVariants(ButtonVariant.LUMO_SMALL);
-        expensesBtn.addClickListener(e -> showFormPanel(null, CATEGORY_EXPENSES));
+        dialog.open();
+    }
+    
+    private void openBankAccountManagement() {
+        BankAccountManagementDialog dialog = new BankAccountManagementDialog(bankAccountService, plaidService, bankAccountService.getBankAccountRepository());
+        // Add listener to refresh dashboard when dialog closes (after potential transaction sync)
+        dialog.addDialogCloseActionListener(e -> refreshDashboard());
+        dialog.open();
+    }
+    
+    /**
+     * Public method to refresh dashboard data - can be called externally
+     */
+    public void refreshBudgetData() {
+        refreshDashboard();
+    }
+    
+    /**
+     * Open the transaction categorization modal for a specific category
+     */
+    private void openTransactionCategorizationModal(String category, String categoryType) {
+        YearMonth currentPeriod = YearMonth.of(currentYear.getValue(), currentMonth.getValue());
         
-        Button billsBtn = new Button("Add to Bills", VaadinIcon.PLUS.create());
-        billsBtn.addThemeVariants(ButtonVariant.LUMO_SMALL);
-        billsBtn.addClickListener(e -> showFormPanel(null, CATEGORY_BILLS));
+        TransactionCategorizationDialog dialog = new TransactionCategorizationDialog(
+            bankAccountService,
+            category,
+            categoryType,
+            currentPeriod,
+            (result) -> refreshDashboard() // Refresh dashboard when changes are saved
+        );
         
-        Button savingsBtn = new Button("Add to Savings", VaadinIcon.PLUS.create());
-        savingsBtn.addThemeVariants(ButtonVariant.LUMO_SMALL);
-        savingsBtn.addClickListener(e -> showFormPanel(null, CATEGORY_SAVINGS));
+        dialog.open();
+    }
+    
+    /**
+     * Show AI Advisory notifications with personalized money-saving tips
+     */
+    private void showAIAdvisoryNotifications() {
+        try {
+            YearMonth currentPeriod = YearMonth.of(currentYear.getValue(), currentMonth.getValue());
+            List<AIAdvisoryService.AdvisoryTip> tips = aiAdvisoryService.generatePersonalizedTips(currentPeriod);
+            
+            // Show only the highest priority tip as a notification to avoid spam
+            if (!tips.isEmpty()) {
+                AIAdvisoryService.AdvisoryTip topTip = tips.get(0);
+                showAdvisoryNotification(topTip);
+            }
+        } catch (Exception e) {
+            // Silently fail - don't show error notifications for advisory tips
+            System.err.println("Failed to generate AI advisory tips: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Display a single advisory tip as a persistent notification
+     */
+    private void showAdvisoryNotification(AIAdvisoryService.AdvisoryTip tip) {
+        // Create notification with tip content
+        String notificationText = "🤖 " + tip.getTitle() + ": " + tip.getMessage();
         
-        // For now, just show the form with no pre-selected category
-        // In a full implementation, you could create a dialog with these buttons
-        showFormPanel(null, null);
+        Notification notification = new Notification();
+        notification.setText(notificationText);
+        
+        // Make notification persistent - it will stay until user closes it
+        notification.setDuration(0); // 0 means it won't auto-close
+        
+        // Set position
+        notification.setPosition(Notification.Position.TOP_END);
+        
+        // Set theme variant based on tip type
+        switch (tip.getType()) {
+            case WARNING:
+                notification.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                break;
+            case OPPORTUNITY:
+                notification.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+                break;
+            case INSIGHT:
+                notification.addThemeVariants(NotificationVariant.LUMO_PRIMARY);
+                break;
+            case SUGGESTION:
+            default:
+                notification.addThemeVariants(NotificationVariant.LUMO_CONTRAST);
+                break;
+        }
+        
+        // Show the notification
+        notification.open();
+    }
+    
+    /**
+     * Create sidebar header with month/year and notification bell
+     */
+    private HorizontalLayout createSidebarHeader() {
+        HorizontalLayout headerLayout = new HorizontalLayout();
+        headerLayout.setWidthFull();
+        headerLayout.setJustifyContentMode(HorizontalLayout.JustifyContentMode.BETWEEN);
+        headerLayout.setAlignItems(HorizontalLayout.Alignment.CENTER);
+        headerLayout.setPadding(false);
+        headerLayout.setSpacing(true);
+        
+        // Month/Year header
+        monthHeader = new H2();
+        updateMonthHeader();
+        monthHeader.addClassName("month-header");
+        monthHeader.getStyle().set("margin", "0")
+                               .set("font-size", "1.2em");
+        
+        // Notification bell button with badge
+        notificationBellButton = new Button(VaadinIcon.BELL.create());
+        notificationBellButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_SMALL);
+        notificationBellButton.getElement().setProperty("title", "View AI Financial Recommendations");
+        notificationBellButton.addClickListener(e -> openNotificationCenter());
+        
+        // Add CSS class for styling
+        notificationBellButton.addClassName("notification-bell");
+        
+        headerLayout.add(monthHeader, notificationBellButton);
+        return headerLayout;
+    }
+    
+    /**
+     * Open the notification center dialog
+     */
+    private void openNotificationCenter() {
+        YearMonth currentPeriod = YearMonth.of(currentYear.getValue(), currentMonth.getValue());
+        NotificationCenterDialog dialog = new NotificationCenterDialog(aiAdvisoryService, currentPeriod);
+        dialog.open();
+    }
+    
+    /**
+     * Update notification bell badge based on available tips
+     */
+    private void updateNotificationBadge() {
+        try {
+            YearMonth currentPeriod = YearMonth.of(currentYear.getValue(), currentMonth.getValue());
+            List<AIAdvisoryService.AdvisoryTip> tips = aiAdvisoryService.generatePersonalizedTips(currentPeriod);
+            
+            if (!tips.isEmpty()) {
+                // Set notification count for CSS badge
+                notificationBellButton.getElement().setAttribute("data-count", String.valueOf(tips.size()));
+                
+                // Check if there are high priority tips (80+)
+                boolean hasHighPriority = tips.stream().anyMatch(tip -> tip.getPriority() >= 80);
+                
+                // Update CSS classes based on priority and count
+                notificationBellButton.removeClassName("no-notifications");
+                notificationBellButton.addClassName("has-notifications");
+                
+                if (hasHighPriority) {
+                    notificationBellButton.addClassName("high-priority");
+                    notificationBellButton.addClassName("notification-pulse");
+                } else {
+                    notificationBellButton.removeClassName("high-priority");
+                    notificationBellButton.addClassName("notification-pulse");
+                }
+                
+                // Update tooltip with count
+                String tooltip = String.format("🔔 %d AI Financial Recommendation%s Available", 
+                    tips.size(), tips.size() > 1 ? "s" : "");
+                notificationBellButton.getElement().setProperty("title", tooltip);
+                
+            } else {
+                // No notifications - remove badge and update styling
+                notificationBellButton.getElement().removeAttribute("data-count");
+                notificationBellButton.removeClassName("has-notifications");
+                notificationBellButton.removeClassName("high-priority");
+                notificationBellButton.removeClassName("notification-pulse");
+                notificationBellButton.addClassName("no-notifications");
+                
+                // Reset tooltip
+                notificationBellButton.getElement().setProperty("title", "No financial recommendations at this time");
+            }
+        } catch (Exception e) {
+            // Silently handle errors - set to no notifications state
+            notificationBellButton.getElement().removeAttribute("data-count");
+            notificationBellButton.removeClassName("has-notifications");
+            notificationBellButton.removeClassName("high-priority");
+            notificationBellButton.removeClassName("notification-pulse");
+            notificationBellButton.addClassName("no-notifications");
+        }
+    }
+    
+    /**
+     * Setup mobile navigation with hamburger menu and overlay
+     */
+    private void setupMobileNavigation() {
+        // Create mobile navigation toggle button
+        mobileNavToggle = new Button(VaadinIcon.MENU.create());
+        mobileNavToggle.addClassName("mobile-nav-toggle");
+        mobileNavToggle.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ICON);
+        mobileNavToggle.getElement().setProperty("title", "Toggle Navigation");
+        
+        // Create sidebar overlay for mobile
+        sidebarOverlay = new Div();
+        sidebarOverlay.addClassName("sidebar-overlay");
+        
+        // Add click handlers
+        mobileNavToggle.addClickListener(e -> toggleMobileNavigation());
+        sidebarOverlay.addClickListener(e -> closeMobileNavigation());
+        
+        // Add to main layout
+        add(mobileNavToggle, sidebarOverlay);
+    }
+    
+    /**
+     * Toggle mobile navigation sidebar
+     */
+    private void toggleMobileNavigation() {
+        if (sidebar.hasClassName("mobile-active")) {
+            closeMobileNavigation();
+        } else {
+            openMobileNavigation();
+        }
+    }
+    
+    /**
+     * Open mobile navigation sidebar
+     */
+    private void openMobileNavigation() {
+        sidebar.addClassName("mobile-active");
+        sidebarOverlay.addClassName("mobile-active");
+        
+        // Prevent body scroll when sidebar is open
+        getElement().executeJs("document.body.style.overflow = 'hidden'");
+    }
+    
+    /**
+     * Close mobile navigation sidebar
+     */
+    private void closeMobileNavigation() {
+        sidebar.removeClassName("mobile-active");
+        sidebarOverlay.removeClassName("mobile-active");
+        
+        // Restore body scroll
+        getElement().executeJs("document.body.style.overflow = 'auto'");
     }
 }

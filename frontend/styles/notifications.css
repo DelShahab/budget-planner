@@ -1,0 +1,113 @@
+/* Notification Bell Styling */
+.notification-bell {
+    position: relative !important;
+    color: var(--lumo-primary-color) !important;
+    background-color: var(--lumo-primary-color-10pct) !important;
+    border-radius: 50% !important;
+    width: 32px !important;
+    height: 32px !important;
+    transition: all 0.3s ease !important;
+}
+
+.notification-bell:hover {
+    background-color: var(--lumo-primary-color-20pct) !important;
+    transform: scale(1.1);
+}
+
+/* Notification Count Badge */
+.notification-bell::after {
+    content: attr(data-count);
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background-color: var(--lumo-error-color);
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 11px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--lumo-base-color);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    z-index: 10;
+}
+
+/* Hide badge when count is 0 or empty */
+.notification-bell[data-count="0"]::after,
+.notification-bell:not([data-count])::after {
+    display: none;
+}
+
+/* Pulsing animation for new notifications */
+.notification-pulse {
+    animation: notification-pulse 2s infinite;
+}
+
+@keyframes notification-pulse {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(var(--lumo-primary-color-rgb), 0.7);
+    }
+    70% {
+        transform: scale(1.05);
+        box-shadow: 0 0 0 10px rgba(var(--lumo-primary-color-rgb), 0);
+    }
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(var(--lumo-primary-color-rgb), 0);
+    }
+}
+
+/* High priority notification styling */
+.notification-bell.high-priority {
+    background-color: var(--lumo-error-color-10pct) !important;
+    color: var(--lumo-error-color) !important;
+}
+
+.notification-bell.high-priority::after {
+    background-color: var(--lumo-error-color);
+    animation: urgent-pulse 1.5s infinite;
+}
+
+@keyframes urgent-pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 0.8;
+    }
+}
+
+/* Notification bell in different states */
+.notification-bell.no-notifications {
+    opacity: 0.6;
+    color: var(--lumo-secondary-text-color) !important;
+    background-color: var(--lumo-contrast-10pct) !important;
+}
+
+.notification-bell.has-notifications {
+    opacity: 1;
+    color: var(--lumo-primary-color) !important;
+    background-color: var(--lumo-primary-color-10pct) !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .notification-bell {
+        width: 28px !important;
+        height: 28px !important;
+    }
+    
+    .notification-bell::after {
+        width: 18px;
+        height: 18px;
+        font-size: 10px;
+        top: -6px;
+        right: -6px;
+    }
+}
