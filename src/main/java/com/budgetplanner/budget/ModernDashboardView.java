@@ -3,11 +3,21 @@ package com.budgetplanner.budget;
 import com.budgetplanner.budget.model.BankAccount;
 import com.budgetplanner.budget.model.BankTransaction;
 import com.budgetplanner.budget.model.BudgetItem;
+import com.budgetplanner.budget.model.SavingsGoal;
 import com.budgetplanner.budget.repository.BankAccountRepository;
+import com.budgetplanner.budget.repository.BankTransactionRepository;
 import com.budgetplanner.budget.repository.BudgetItemRepository;
 import com.budgetplanner.budget.service.BankAccountService;
 import com.budgetplanner.budget.service.DashboardDataService;
+import com.budgetplanner.budget.service.TransactionMetaService;
 import com.budgetplanner.budget.service.PlaidService;
+import com.budgetplanner.budget.service.SimplifiedEnhancedPlaidService;
+import com.budgetplanner.budget.service.RecurringTransactionService;
+import com.budgetplanner.budget.service.SavingsGoalService;
+import com.budgetplanner.budget.service.UserSessionService;
+import com.budgetplanner.budget.util.AvatarHelper;
+import com.budgetplanner.budget.util.CurrencyFormatter;
+import com.budgetplanner.budget.view.BankAccountManagementDialog;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.charts.Chart;
@@ -18,6 +28,10 @@ import com.vaadin.flow.component.dependency.JsModule;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
+import com.vaadin.flow.component.accordion.Accordion;
+import com.vaadin.flow.component.accordion.AccordionPanel;
+import com.vaadin.flow.component.combobox.ComboBox;
+import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.html.*;
@@ -35,9 +49,14 @@ import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.component.ClientCallable;
+import com.vaadin.flow.server.StreamResource;
+import org.springframework.beans.factory.annotation.Autowired;
 
+import java.io.ByteArrayInputStream;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -45,8 +64,8 @@ import java.util.Map;
 /**
  * Modern Financial Dashboard View with real data integration and USD conversion
  */
-@Route(value = "modern-dashboard")
-@PageTitle("Modern Dashboard | Budget Planner")
+@Route(value = "")
+@PageTitle("Dashboard | Budget Planner")
 @CssImport("./styles/modern-dashboard.css")
 @CssImport("./styles/budget-dashboard.css")
 @CssImport("./styles/mobile-responsive.css")
@@ -64,25 +83,56 @@ public class ModernDashboardView extends Div {
     private final BankAccountService bankAccountService;
     private final PlaidService plaidService;
     private final BankAccountRepository bankAccountRepository;
+    private final SavingsGoalService savingsGoalService;
+    private final BankTransactionRepository bankTransactionRepository;
+    private final TransactionMetaService transactionMetaService;
+    private final RecurringTransactionService recurringTransactionService;
+    private final UserSessionService userSessionService;
     
     private Div creditCardSection;
+    private Div savingsSectionContainer;
+    private Div summaryCardsContainer;
+    private Div activitySectionContainer;
+    private Div activityStatsContainer;
+    private Div dailyExpensesContainer;
+    private Div allExpensesContainer;
 
+    @Autowired
     public ModernDashboardView(DashboardDataService dashboardDataService,
                                BudgetItemRepository budgetItemRepository,
                                BankAccountService bankAccountService,
                                PlaidService plaidService,
-                               BankAccountRepository bankAccountRepository) {
+                               BankAccountRepository bankAccountRepository,
+                               SavingsGoalService savingsGoalService,
+                               BankTransactionRepository bankTransactionRepository,
+                               UserSessionService userSessionService,
+                               TransactionMetaService transactionMetaService,
+                               RecurringTransactionService recurringTransactionService) {
+        this.plaidService = plaidService;
+        this.bankAccountService = bankAccountService;
         this.dashboardDataService = dashboardDataService;
         this.budgetItemRepository = budgetItemRepository;
-        this.bankAccountService = bankAccountService;
-        this.plaidService = plaidService;
         this.bankAccountRepository = bankAccountRepository;
+        this.savingsGoalService = savingsGoalService;
+        this.bankTransactionRepository = bankTransactionRepository;
+        this.userSessionService = userSessionService;
+        this.transactionMetaService = transactionMetaService;
+        this.recurringTransactionService = recurringTransactionService;
         
         setSizeFull();
         addClassName("modern-dashboard");
 
         createLayout();
         addFloatingActionButton();
+    }
+    
+    @Override
+    protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
+        super.onAttach(attachEvent);
+        // Refresh savings section when navigating back to dashboard
+        if (savingsSectionContainer != null) {
+            refreshSavingsSection();
+        }
     }
 
     private void createLayout() {
@@ -129,22 +179,8 @@ public class ModernDashboardView extends Div {
         sidebar.setSpacing(false);
         sidebar.getStyle().set("gap", "35px");
 
-        // Logo at top
-        Div logo = new Div();
-        logo.getStyle()
-            .set("width", "45px")
-            .set("height", "45px")
-            .set("background", "#01a1be")
-            .set("border-radius", "50%")
-            .set("display", "flex")
-            .set("align-items", "center")
-            .set("justify-content", "center")
-            .set("color", "white")
-            .set("font-size", "18px")
-            .set("font-weight", "bold")
-            .set("margin", "20px auto 0");
-        Span logoText = new Span("AM");
-        logo.add(logoText);
+        // Logo at top - show user avatar if available
+        Div logo = AvatarHelper.createAvatarLogo(userSessionService);
 
         // Navigation icons container
         VerticalLayout navContainer = new VerticalLayout();
@@ -159,6 +195,7 @@ public class ModernDashboardView extends Div {
         Button trendsBtn = createNavButton(VaadinIcon.TRENDING_UP, "Trends", false);
         Button recurringBtn = createNavButton(VaadinIcon.REFRESH, "Recurring", false);
         Button savingsBtn = createNavButton(VaadinIcon.PIGGY_BANK, "Savings", false);
+        Button planBtn = createNavButton(VaadinIcon.CALENDAR, "Monthly Plan", false);
         Button notificationsBtn = createNavButton(VaadinIcon.STAR, "Notifications", false);
         Button userBtn = createNavButton(VaadinIcon.USER, "Profile", false);
         
@@ -183,6 +220,10 @@ public class ModernDashboardView extends Div {
             getUI().ifPresent(ui -> ui.navigate("notifications"));
         });
         
+        planBtn.addClickListener(e -> {
+            getUI().ifPresent(ui -> ui.navigate("monthly-plan"));
+        });
+
         Button historyBtn = createNavButton(VaadinIcon.CLOCK, "History", false);
         historyBtn.addClickListener(e -> {
             getUI().ifPresent(ui -> ui.navigate("history"));
@@ -193,7 +234,7 @@ public class ModernDashboardView extends Div {
         // Open Bank Account Management when settings clicked
         settingsBtn.addClickListener(e -> openBankAccountManagement());
 
-        navContainer.add(homeBtn, trendsBtn, recurringBtn, savingsBtn, notificationsBtn, userBtn, historyBtn, settingsBtn);
+        navContainer.add(homeBtn, trendsBtn, recurringBtn, savingsBtn, planBtn, notificationsBtn, userBtn, historyBtn, settingsBtn);
         
         sidebar.add(logo, navContainer);
         return sidebar;
@@ -211,6 +252,48 @@ public class ModernDashboardView extends Div {
 
         return btn;
     }
+    
+    private Button createUserAvatarButton() {
+        Button btn = new Button();
+        btn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        btn.addClassName("nav-button");
+        btn.getElement().setProperty("title", "Profile");
+        
+        // Check if user has avatar in session
+        if (userSessionService.hasAvatar()) {
+            // Show avatar image
+            Image avatarImg = new Image();
+            byte[] avatarData = userSessionService.getAvatarFromSession();
+            StreamResource resource = new StreamResource("avatar.png", 
+                () -> new ByteArrayInputStream(avatarData));
+            avatarImg.setSrc(resource);
+            avatarImg.setWidth("32px");
+            avatarImg.setHeight("32px");
+            avatarImg.getStyle()
+                .set("border-radius", "50%")
+                .set("object-fit", "cover");
+            btn.setIcon(avatarImg);
+        } else {
+            // Show initials placeholder
+            String initials = userSessionService.getUserInitials();
+            Div initialsDiv = new Div();
+            initialsDiv.getStyle()
+                .set("width", "32px")
+                .set("height", "32px")
+                .set("border-radius", "50%")
+                .set("background", "#01a1be")
+                .set("display", "flex")
+                .set("align-items", "center")
+                .set("justify-content", "center")
+                .set("color", "white")
+                .set("font-size", "14px")
+                .set("font-weight", "bold");
+            initialsDiv.add(new Span(initials));
+            btn.getElement().appendChild(initialsDiv.getElement());
+        }
+        
+        return btn;
+    }
 
     private Div createLeftColumn() {
         Div column = new Div();
@@ -221,8 +304,8 @@ public class ModernDashboardView extends Div {
         // Credit card - store reference for updates
         creditCardSection = createCreditCard();
         
-        // Activity Statistics
-        Div activityStats = createActivityStatistics();
+        // Activity Statistics - store reference for updates
+        activityStatsContainer = createActivityStatistics();
         
         // Goals, Monthly Plan, Shopping, Settings sections
         Div goalsSection = createGoalsSection();
@@ -230,36 +313,36 @@ public class ModernDashboardView extends Div {
         Div shoppingSection = createShoppingSection();
         Div settingsSection = createSettingsSection();
 
-        column.add(greeting, creditCardSection, activityStats, goalsSection, monthlyPlanSection, shoppingSection, settingsSection);
+        column.add(greeting, creditCardSection, activityStatsContainer, goalsSection, monthlyPlanSection, shoppingSection, settingsSection);
         return column;
     }
 
     private Div createMiddleColumn() {
         Div column = new Div();
 
-        // Summary cards
-        Div summaryCards = createSummaryCards();
+        // Summary cards - store reference for updates
+        summaryCardsContainer = createSummaryCards();
         
-        // Activity section
-        Div activitySection = createActivitySection();
+        // Activity section - store reference for updates
+        activitySectionContainer = createActivitySection();
 
-        column.add(summaryCards, activitySection);
+        column.add(summaryCardsContainer, activitySectionContainer);
         return column;
     }
 
     private Div createRightColumn() {
         Div column = new Div();
 
-        // Daily Expenses
-        Div dailyExpenses = createDailyExpenses();
+        // Daily Expenses - store reference for updates
+        dailyExpensesContainer = createDailyExpenses();
         
-        // All Expenses
-        Div allExpenses = createAllExpenses();
+        // All Expenses - store reference for updates
+        allExpensesContainer = createAllExpenses();
         
-        // Savings section
-        Div savingsSection = createSavingsSection();
+        // Savings section - store reference for updates
+        savingsSectionContainer = createSavingsSection();
 
-        column.add(dailyExpenses, allExpenses, savingsSection);
+        column.add(dailyExpensesContainer, allExpensesContainer, savingsSectionContainer);
         return column;
     }
 
@@ -323,6 +406,7 @@ public class ModernDashboardView extends Div {
         // Account type logo
         Span accountTypeLogo = new Span(primaryAccount != null ? primaryAccount.getAccountType().toUpperCase() : "");
         accountTypeLogo.addClassName("visa-logo");
+        accountTypeLogo.setVisible(false);
 
         // Account/Card number (last 4 digits)
         HorizontalLayout cardNumber = new HorizontalLayout();
@@ -368,53 +452,128 @@ public class ModernDashboardView extends Div {
 
     private Div createActivityStatistics() {
         Div container = new Div();
-        container.addClassName("activity-statistics-section");
+        container.addClassName("activity-statistics");
 
-        // Header with title and amount
+        // Header with title and stats (amount + date range)
         HorizontalLayout header = new HorizontalLayout();
         header.setWidthFull();
         header.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
-        header.setAlignItems(FlexComponent.Alignment.START);
-        header.getStyle().set("margin-bottom", "10px");
+        header.setAlignItems(FlexComponent.Alignment.CENTER);
+        // header.getStyle().set("margin-bottom", "20px");
 
         Span title = new Span("Activity Statistics");
         title.addClassName("section-title");
-        title.getStyle().set("margin", "0");
-
-        VerticalLayout rightSide = new VerticalLayout();
-        rightSide.setPadding(false);
-        rightSide.setSpacing(false);
-        rightSide.getStyle()
-            .set("align-items", "flex-end")
-            .set("gap", "2px");
-
-        Span amount = new Span("$90k");
+        title.getStyle()
+            .set("margin", "0")
+            .set("font-size", "18px")
+            .set("font-weight", "600");
+        
+        // Stats display (amount and date range text) on the right
+        HorizontalLayout statsLayout = new HorizontalLayout();
+        statsLayout.setPadding(false);
+        statsLayout.setSpacing(true);
+        statsLayout.setAlignItems(FlexComponent.Alignment.BASELINE);
+        statsLayout.getStyle().set("gap", "10px");
+        
+        Span amount = new Span();
         amount.getStyle()
-            .set("font-size", "32px")
+            .set("font-size", "28px")
             .set("font-weight", "700")
             .set("color", "white")
             .set("line-height", "1");
-
-        Span dateRange = new Span("BETWEEN Mar 9 - 22");
-        dateRange.getStyle()
-            .set("font-size", "11px")
+        
+        Span dateRangeText = new Span();
+        dateRangeText.getStyle()
+            .set("font-size", "12px")
             .set("color", "var(--secondary-color)")
             .set("font-weight", "500");
+        
+        statsLayout.add(amount);
+        header.add(title, statsLayout);
 
-        rightSide.add(amount, dateRange);
-        header.add(title, rightSide);
+        // Date range picker section
+        HorizontalLayout datePickerLayout = new HorizontalLayout();
+        datePickerLayout.setAlignItems(FlexComponent.Alignment.CENTER);
+        datePickerLayout.setSpacing(true);
+        datePickerLayout.getStyle().set("margin-bottom", "15px");
+        
+        LocalDate today = LocalDate.now();
+        LocalDate defaultStartDate = today.minusDays(30);
+        
+        DatePicker startDatePicker = new DatePicker("From");
+        startDatePicker.setValue(defaultStartDate);
+        startDatePicker.setWidth("140px");
+        startDatePicker.getStyle()
+            .set("--lumo-contrast-10pct", "rgba(255, 255, 255, 0.1)")
+            .set("--lumo-contrast-20pct", "rgba(255, 255, 255, 0.2)")
+            .set("--lumo-contrast-90pct", "white");
+        
+        DatePicker endDatePicker = new DatePicker("To");
+        endDatePicker.setValue(today);
+        endDatePicker.setWidth("140px");
+        endDatePicker.getStyle()
+            .set("--lumo-contrast-10pct", "rgba(255, 255, 255, 0.1)")
+            .set("--lumo-contrast-20pct", "rgba(255, 255, 255, 0.2)")
+            .set("--lumo-contrast-90pct", "white");
+        
+        datePickerLayout.add(startDatePicker, endDatePicker);
 
-        // Vaadin Area Chart
-        Chart chart = createActivityChart();
-        chart.setHeight("180px");
-        chart.getStyle()
-            .set("margin-top", "15px");
+        // Chart placeholder
+        Div chartContainer = new Div();
+        chartContainer.getStyle().set("margin-top", "10px");
+        
+        // Initial load
+        updateActivityStatistics(chartContainer, amount, dateRangeText, defaultStartDate, today);
+        
+        // Add listeners for date changes
+        startDatePicker.addValueChangeListener(event -> {
+            LocalDate startDate = event.getValue();
+            LocalDate endDate = endDatePicker.getValue();
+            if (startDate != null && endDate != null && !startDate.isAfter(endDate)) {
+                updateActivityStatistics(chartContainer, amount, dateRangeText, startDate, endDate);
+            }
+        });
+        
+        endDatePicker.addValueChangeListener(event -> {
+            LocalDate startDate = startDatePicker.getValue();
+            LocalDate endDate = event.getValue();
+            if (startDate != null && endDate != null && !startDate.isAfter(endDate)) {
+                updateActivityStatistics(chartContainer, amount, dateRangeText, startDate, endDate);
+            }
+        });
 
-        container.add(header, chart);
+        container.add(header, datePickerLayout, chartContainer);
         return container;
     }
+    
+    private void updateActivityStatistics(Div chartContainer, Span amountSpan, Span dateRangeSpan, 
+                                         LocalDate startDate, LocalDate endDate) {
+        chartContainer.removeAll();
+        
+        // Get activity statistics for date range
+        Map<LocalDate, Double> activityData = dashboardDataService.getActivityStatisticsByDateRange(startDate, endDate);
+        
+        // Calculate total
+        double totalExpenses = activityData.values().stream().mapToDouble(Double::doubleValue).sum();
+        double totalExpensesUSD = dashboardDataService.convertToUSD(totalExpenses);
+        
+        // Update amount display
+        String formattedAmount = CurrencyFormatter.formatCompactUSD(totalExpensesUSD);
+        amountSpan.setText(formattedAmount);
+        
+        // Update date range text
+        String dateRangeStr = startDate.format(DateTimeFormatter.ofPattern("MMM d")) + " - " + 
+                             endDate.format(DateTimeFormatter.ofPattern("MMM d, yyyy"));
+        dateRangeSpan.setText(dateRangeStr);
+        
+        // Create chart
+        Chart chart = createActivityChartForDateRange(activityData, startDate, endDate);
+        chart.setHeight("180px");
+        chartContainer.add(chart);
+    }
 
-    private Chart createActivityChart() {
+    private Chart createActivityChartForDateRange(Map<LocalDate, Double> activityData, 
+                                                   LocalDate startDate, LocalDate endDate) {
         Chart chart = new Chart(ChartType.AREASPLINE);
         
         // Configure chart appearance
@@ -435,20 +594,27 @@ public class ModernDashboardView extends Div {
         // Disable legend
         conf.getLegend().setEnabled(false);
         
-        // Get real activity statistics (last 30 days by day of month)
-        Map<Integer, Double> activityData = dashboardDataService.getActivityStatistics();
-        
-        // Prepare data for chart (sample every other day for cleaner display)
+        // Prepare data for chart
         List<String> categories = new ArrayList<>();
         List<Number> dataPoints = new ArrayList<>();
         double maxValue = 0;
         
-        for (int day = 2; day <= 22; day += 2) {
-            categories.add(String.valueOf(day));
-            double amountIDR = activityData.getOrDefault(day, 0.0);
-            double amountUSD = dashboardDataService.convertToUSD(amountIDR);
-            dataPoints.add(amountUSD / 1000); // Convert to thousands for chart
-            maxValue = Math.max(maxValue, amountUSD / 1000);
+        // Sample data points based on range size
+        long daysBetween = ChronoUnit.DAYS.between(startDate, endDate) + 1;
+        int sampleInterval = daysBetween > 30 ? 3 : (daysBetween > 14 ? 2 : 1);
+        
+        LocalDate currentDate = startDate;
+        int dayCounter = 0;
+        while (!currentDate.isAfter(endDate)) {
+            if (dayCounter % sampleInterval == 0) {
+                categories.add(currentDate.format(DateTimeFormatter.ofPattern("MMM d")));
+                double amountIDR = activityData.getOrDefault(currentDate, 0.0);
+                double amountUSD = dashboardDataService.convertToUSD(amountIDR);
+                dataPoints.add(amountUSD);
+                maxValue = Math.max(maxValue, amountUSD);
+            }
+            currentDate = currentDate.plusDays(1);
+            dayCounter++;
         }
         
         // X-Axis Configuration (dates)
@@ -465,8 +631,9 @@ public class ModernDashboardView extends Div {
         YAxis yAxis = conf.getyAxis();
         yAxis.setTitle("");
         yAxis.setMin(0);
-        yAxis.setMax(Math.ceil(maxValue / 10) * 10 + 10); // Round up to nearest 10
-        yAxis.setTickInterval(10);
+        double yMax = maxValue > 0 ? Math.ceil(maxValue / 10) * 10 + 10 : 100;
+        yAxis.setMax(yMax);
+        yAxis.setTickInterval(Math.max(10, yMax / 10));
         yAxis.setGridLineColor(new SolidColor(255, 255, 255, 0.1));
         yAxis.setGridLineWidth(1);
         com.vaadin.flow.component.charts.model.style.Style yStyle = new com.vaadin.flow.component.charts.model.style.Style();
@@ -498,7 +665,7 @@ public class ModernDashboardView extends Div {
         Div container = new Div();
         container.addClassName("activity-section");
 
-        // Header with title and date range
+        // Header with title and date filter
         HorizontalLayout header = new HorizontalLayout();
         header.setWidthFull();
         header.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
@@ -509,30 +676,56 @@ public class ModernDashboardView extends Div {
         title.addClassName("section-title");
         title.getStyle().set("margin", "0");
 
-        Span dateRange = new Span("Last 21 days");
-        dateRange.getStyle()
-            .set("font-size", "11px")
-            .set("color", "var(--secondary-color)")
-            .set("padding", "8px 16px")
-            .set("background", "#1f1c2d")
-            .set("border-radius", "8px");
+        // Date filter ComboBox
+        ComboBox<Integer> dateFilter = new ComboBox<>();
+        dateFilter.setItems(7, 14, 21, 30, 60, 90);
+        dateFilter.setValue(21);
+        dateFilter.setPlaceholder("Filter by days");
+        dateFilter.setWidth("150px");
+        dateFilter.getStyle()
+            .set("--lumo-contrast-10pct", "rgba(255, 255, 255, 0.1)")
+            .set("--lumo-contrast-20pct", "rgba(255, 255, 255, 0.2)")
+            .set("--lumo-contrast-90pct", "white");
+        dateFilter.setItemLabelGenerator(days -> "Last " + days + " days");
 
-        header.add(title, dateRange);
+        header.add(title, dateFilter);
 
-        // Activity list with real transaction data
+        // Activity list with real transaction data (with scrolling)
         Div activityList = new Div();
         activityList.addClassName("activity-list");
+        activityList.getStyle()
+            .set("max-height", "600px")
+            .set("overflow-y", "auto")
+            .set("overflow-x", "hidden")
+            .set("padding-right", "10px");
 
+        // Initial load with default 21 days
+        loadActivityTransactions(activityList, 21);
+        
+        // Add change listener to filter
+        dateFilter.addValueChangeListener(event -> {
+            if (event.getValue() != null) {
+                loadActivityTransactions(activityList, event.getValue());
+            }
+        });
+
+        container.add(header, activityList);
+        return container;
+    }
+    
+    private void loadActivityTransactions(Div activityList, int days) {
+        activityList.removeAll();
+        
         // Get real transactions grouped by date
-        Map<String, List<BankTransaction>> transactionsByDate = dashboardDataService.getRecentTransactions(21);
+        Map<String, List<BankTransaction>> transactionsByDate = dashboardDataService.getRecentTransactions(days);
         
         if (transactionsByDate.isEmpty()) {
             // Show message when no transactions
-            Span noData = new Span("No recent transactions");
+            Span noData = new Span("No transactions found for the selected period");
             noData.getStyle()
                 .set("color", "var(--secondary-color)")
                 .set("font-size", "14px")
-                .set("padding", "20px")
+                .set("padding", "40px 20px")
                 .set("text-align", "center")
                 .set("display", "block");
             activityList.add(noData);
@@ -549,9 +742,6 @@ public class ModernDashboardView extends Div {
                 }
             });
         }
-
-        container.add(header, activityList);
-        return container;
     }
     
     private Div createActivityTransactionFromData(BankTransaction transaction) {
@@ -567,7 +757,7 @@ public class ModernDashboardView extends Div {
         // Format date and time
         String dateTime = transaction.getTransactionDate().format(DateTimeFormatter.ofPattern("d MMM, yyyy"));
         
-        return createActivityTransaction(merchant, dateTime, category, amountStr, icon, categoryColor);
+        return createActivityTransaction(merchant, dateTime, category, amountStr, icon, categoryColor, transaction);
     }
     
     private VaadinIcon getIconForCategory(String category) {
@@ -601,9 +791,28 @@ public class ModernDashboardView extends Div {
         return section;
     }
 
-    private Div createActivityTransaction(String merchant, String dateTime, String category, String amount, VaadinIcon icon, String categoryColor) {
+    private Div createActivityTransaction(String merchant, String dateTime, String category, String amount, VaadinIcon icon, String categoryColor, BankTransaction bankTransaction) {
         Div transaction = new Div();
         transaction.addClassName("activity-item");
+        
+        // Make the entire transaction clickable with hover effect
+        transaction.getStyle()
+            .set("cursor", "pointer")
+            .set("transition", "all 0.2s ease");
+        
+        // Add click listener to open transaction details dialog
+        transaction.getElement().addEventListener("click", e -> {
+            openTransactionDetailsDialog(bankTransaction, amount, categoryColor);
+        }).addEventData("event.stopPropagation()");
+        
+        // Add hover effect
+        transaction.getElement().addEventListener("mouseenter", e -> {
+            transaction.getStyle().set("background", "rgba(255, 255, 255, 0.05)");
+        });
+        
+        transaction.getElement().addEventListener("mouseleave", e -> {
+            transaction.getStyle().set("background", "transparent");
+        });
 
         HorizontalLayout layout = new HorizontalLayout();
         layout.setWidthFull();
@@ -674,6 +883,20 @@ public class ModernDashboardView extends Div {
 
         transaction.add(layout);
         return transaction;
+    }
+    
+    private void openTransactionDetailsDialog(BankTransaction transaction, String formattedAmount, String categoryColor) {
+        com.budgetplanner.budget.view.TransactionDetailsDialog dialog =
+            new com.budgetplanner.budget.view.TransactionDetailsDialog(
+                transaction,
+                formattedAmount,
+                categoryColor,
+                bankAccountService,
+                dashboardDataService,
+                transactionMetaService,
+                recurringTransactionService
+            );
+        dialog.open();
     }
 
     private Div createSettingsSection() {
@@ -905,15 +1128,26 @@ public class ModernDashboardView extends Div {
         Div expensesCard = new Div();
         expensesCard.addClassName("daily-expenses-card");
 
+        // Get real daily expense data
+        double todayExpenses = dashboardDataService.getTodayExpenses();
+        double dailyBudget = dashboardDataService.getDailyBudgetLimit();
+        double todayExpensesUSD = dashboardDataService.convertToUSD(todayExpenses);
+        double dailyBudgetUSD = dashboardDataService.convertToUSD(dailyBudget);
+        
+        // Calculate progress percentage
+        double progressPercentage = dailyBudgetUSD > 0 ? (todayExpensesUSD / dailyBudgetUSD) * 100 : 0;
+        progressPercentage = Math.min(progressPercentage, 100); // Cap at 100%
+        
         // Goal expenses section
         Div goalExpenses = new Div();
         goalExpenses.getStyle().set("position", "absolute")
                    .set("top", "19px")
                    .set("left", "96px")
-                   .set("width", "185px")
+                   .set("width", "220px")
                    .set("height", "24px");
         
-        Span rangeText = new Span("Rp 70.000 - Rp 100.000");
+        String expenseText = dashboardDataService.formatUSD(todayExpensesUSD) + " / " + dashboardDataService.formatUSD(dailyBudgetUSD);
+        Span rangeText = new Span(expenseText);
         rangeText.addClassName("range-text");
         goalExpenses.add(rangeText);
 
@@ -927,22 +1161,38 @@ public class ModernDashboardView extends Div {
                    .set("background-color", "#e1925233")
                    .set("border-radius", "10px");
         
+        // Dynamic progress fill based on actual spending
+        int fillWidth = (int) ((progressPercentage / 100.0) * 200);
         Div progressFill = new Div();
-        progressFill.getStyle().set("width", "161px")
+        progressFill.getStyle().set("width", fillWidth + "px")
                     .set("height", "6px")
-                    .set("background-color", "#e19252")
-                    .set("border-radius", "10px");
+                    .set("background-color", progressPercentage > 90 ? "#ef4444" : (progressPercentage > 75 ? "#f59e0b" : "#e19252"))
+                    .set("border-radius", "10px")
+                    .set("transition", "all 0.3s ease");
         progressBar.add(progressFill);
 
-        // Subtext
+        // Subtext - dynamic based on spending
         Div subtext = new Div();
         subtext.getStyle().set("position", "absolute")
                .set("top", "63px")
                .set("left", "96px")
-               .set("width", "180px")
+               .set("width", "200px")
                .set("height", "15px");
         
-        Span rangeSubtext = new Span("Almost reached the spending limit!");
+        String subtextMessage;
+        if (progressPercentage >= 100) {
+            subtextMessage = "Budget limit exceeded!";
+        } else if (progressPercentage >= 90) {
+            subtextMessage = "Almost reached the spending limit!";
+        } else if (progressPercentage >= 75) {
+            subtextMessage = "Getting close to your limit";
+        } else if (progressPercentage >= 50) {
+            subtextMessage = "On track with your budget";
+        } else {
+            subtextMessage = "Great! Well within budget";
+        }
+        
+        Span rangeSubtext = new Span(subtextMessage);
         rangeSubtext.addClassName("range-subtext");
         subtext.add(rangeSubtext);
 
@@ -962,6 +1212,12 @@ public class ModernDashboardView extends Div {
     private Div createGoalsSection() {
         Div container = new Div();
         container.addClassName("goals-section");
+        container.getStyle().set("cursor", "pointer");
+        
+        // Add click listener to navigate to Savings Goals
+        container.addClickListener(e -> {
+            getUI().ifPresent(ui -> ui.navigate("savings"));
+        });
 
         HorizontalLayout header = new HorizontalLayout();
         header.setWidthFull();
@@ -982,6 +1238,12 @@ public class ModernDashboardView extends Div {
     private Div createMonthlyPlanSection() {
         Div container = new Div();
         container.addClassName("monthly-plan-section");
+        container.getStyle().set("cursor", "pointer");
+        
+        // Add click listener to navigate to Monthly Plan
+        container.addClickListener(e -> {
+            getUI().ifPresent(ui -> ui.navigate("monthly-plan"));
+        });
 
         HorizontalLayout header = new HorizontalLayout();
         header.setWidthFull();
@@ -1002,6 +1264,12 @@ public class ModernDashboardView extends Div {
     private Div createShoppingSection() {
         Div container = new Div();
         container.addClassName("shopping-section");
+        container.getStyle().set("cursor", "pointer");
+        
+        // Add click listener to navigate to Trends & Activity
+        container.addClickListener(e -> {
+            getUI().ifPresent(ui -> ui.navigate("trends"));
+        });
 
         HorizontalLayout header = new HorizontalLayout();
         header.setWidthFull();
@@ -1040,20 +1308,149 @@ public class ModernDashboardView extends Div {
             .set("font-size", "12px")
             .set("cursor", "pointer")
             .set("font-weight", "600");
+        viewAll.addClickListener(e -> {
+            getUI().ifPresent(ui -> ui.navigate("savings"));
+        });
 
         header.add(title, viewAll);
 
-        // Savings goals
+        // Get real savings goals
+        List<SavingsGoal> activeGoals = savingsGoalService.getAllActiveGoals();
+        
+        // Savings summary card
+        Div summaryCard = createSavingsSummaryCard(activeGoals);
+
+        // Savings goals list
         Div savingsGoals = new Div();
         savingsGoals.getStyle().set("display", "flex").set("flex-direction", "column").set("gap", "15px");
+        
+        if (activeGoals.isEmpty()) {
+            // Show message if no goals
+            Span noGoals = new Span("No savings goals yet. Create one to start tracking!");
+            noGoals.getStyle()
+                .set("color", "var(--secondary-color)")
+                .set("font-size", "14px")
+                .set("text-align", "center")
+                .set("padding", "20px");
+            savingsGoals.add(noGoals);
+        } else {
+            // Display real savings goals (latest 3)
+            activeGoals.stream()
+                .limit(2) // Show latest 2 goals in dashboard
+                .forEach(goal -> {
+                    double currentUSD = dashboardDataService.convertToUSD(goal.getCurrentAmount());
+                    double targetUSD = dashboardDataService.convertToUSD(goal.getTargetAmount());
+                    String currentFormatted = dashboardDataService.formatUSD(currentUSD);
+                    String targetFormatted = dashboardDataService.formatUSD(targetUSD);
+                    VaadinIcon icon = getIconForGoal(goal.getIconName());
+                    savingsGoals.add(createSavingsGoalWithIcon(
+                        goal.getGoalName(),
+                        currentFormatted,
+                        targetFormatted,
+                        goal.getProgressPercentage(),
+                        icon
+                    ));
+                });
+        }
 
-        // Add sample savings goals
-        savingsGoals.add(createSavingsGoalWithIcon("New House", "Rp 250.000.000", "Rp 300.000.000", 83, VaadinIcon.HOME));
-        savingsGoals.add(createSavingsGoalWithIcon("PC Gaming", "Rp 10.000.000", "Rp 20.000.000", 50, VaadinIcon.DESKTOP));
-        savingsGoals.add(createSavingsGoalWithIcon("Summer Trip", "Rp 100.000", "Rp 1.000.000", 14, VaadinIcon.AIRPLANE));
-
-        container.add(header, savingsGoals);
+        container.add(header, summaryCard, savingsGoals);
         return container;
+    }
+    
+    private Div createSavingsSummaryCard(List<SavingsGoal> activeGoals) {
+        Div card = new Div();
+        card.getStyle()
+            .set("background", "linear-gradient(135deg, #667eea 0%, #764ba2 100%)")
+            .set("padding", "20px")
+            .set("border-radius", "12px")
+            .set("margin-bottom", "20px");
+        
+        // Calculate totals
+        double totalCurrent = savingsGoalService.getTotalCurrentSavings();
+        double totalTarget = savingsGoalService.getTotalTargetSavings();
+        int overallProgress = savingsGoalService.getOverallProgressPercentage();
+        int goalCount = activeGoals.size();
+        
+        // Convert to USD
+        double totalCurrentUSD = dashboardDataService.convertToUSD(totalCurrent);
+        double totalTargetUSD = dashboardDataService.convertToUSD(totalTarget);
+        
+        // Top row: Label and goal count
+        HorizontalLayout topRow = new HorizontalLayout();
+        topRow.setWidthFull();
+        topRow.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
+        topRow.setAlignItems(FlexComponent.Alignment.CENTER);
+        
+        Span label = new Span("Total Savings");
+        label.getStyle()
+            .set("font-size", "12px")
+            .set("color", "rgba(255, 255, 255, 0.8)")
+            .set("font-weight", "500")
+            .set("text-transform", "uppercase");
+        
+        Span goalCountBadge = new Span(goalCount + " Goal" + (goalCount != 1 ? "s" : ""));
+        goalCountBadge.getStyle()
+            .set("font-size", "11px")
+            .set("color", "rgba(255, 255, 255, 0.9)")
+            .set("background", "rgba(255, 255, 255, 0.2)")
+            .set("padding", "4px 10px")
+            .set("border-radius", "12px")
+            .set("font-weight", "600");
+        
+        topRow.add(label, goalCountBadge);
+        
+        // Amount display
+        HorizontalLayout amountRow = new HorizontalLayout();
+        amountRow.setWidthFull();
+        amountRow.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
+        amountRow.setAlignItems(FlexComponent.Alignment.BASELINE);
+        amountRow.getStyle().set("margin-top", "8px").set("margin-bottom", "8px");
+        
+        Span currentAmount = new Span(dashboardDataService.formatUSD(totalCurrentUSD));
+        currentAmount.getStyle()
+            .set("font-size", "23px")
+            .set("font-weight", "700")
+            .set("color", "white");
+        
+        Span targetAmount = new Span("of " + dashboardDataService.formatUSD(totalTargetUSD));
+        targetAmount.getStyle()
+            .set("font-size", "16px")
+            .set("color", "rgba(255, 255, 255, 0.8)")
+            .set("font-weight", "500");
+        
+        amountRow.add(currentAmount, targetAmount);
+        
+        // Progress bar
+        Div progressBar = new Div();
+        progressBar.getStyle()
+            .set("width", "100%")
+            .set("height", "8px")
+            .set("background", "rgba(255, 255, 255, 0.2)")
+            .set("border-radius", "10px")
+            .set("overflow", "hidden")
+            .set("margin-top", "12px");
+        
+        Div progressFill = new Div();
+        progressFill.getStyle()
+            .set("width", overallProgress + "%")
+            .set("height", "100%")
+            .set("background", "white")
+            .set("border-radius", "10px")
+            .set("transition", "width 0.3s ease");
+        
+        progressBar.add(progressFill);
+        
+        // Progress percentage text
+        Span progressText = new Span(overallProgress + "% Complete");
+        progressText.getStyle()
+            .set("font-size", "11px")
+            .set("color", "rgba(255, 255, 255, 0.9)")
+            .set("margin-top", "8px")
+            .set("display", "block")
+            .set("font-weight", "600");
+        
+        card.add(topRow, amountRow, progressBar, progressText);
+        return card;
     }
 
     private Div createSavingsGoalWithIcon(String goalName, String current, String target, int progress, VaadinIcon iconType) {
@@ -1330,164 +1727,25 @@ public class ModernDashboardView extends Div {
     }
     
     private void openBankAccountManagement() {
-        Dialog dialog = new Dialog();
-        dialog.setWidth("900px");
-        dialog.setHeight("700px");
-        
-        // Apply modern dialog theme
-        dialog.getElement().getThemeList().add("modern-dialog");
-        
-        // Header
-        HorizontalLayout header = new HorizontalLayout();
-        header.setWidthFull();
-        header.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
-        header.setAlignItems(FlexComponent.Alignment.CENTER);
-        header.getStyle()
-            .set("padding", "20px 24px")
-            .set("border-bottom", "1px solid rgba(255,255,255,0.1)");
-        
-        H2 dialogTitle = new H2("Bank Account Management");
-        dialogTitle.getStyle()
-            .set("margin", "0")
-            .set("font-size", "24px")
-            .set("font-weight", "700")
-            .set("color", "white");
-        
-        Button closeButton = new Button(new Icon(VaadinIcon.CLOSE));
-        closeButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-        closeButton.getStyle()
-            .set("color", "#9CA3AF")
-            .set("cursor", "pointer");
-        closeButton.addClickListener(e -> dialog.close());
-        
-        header.add(dialogTitle, closeButton);
-        
-        // Content
-        VerticalLayout content = new VerticalLayout();
-        content.setSpacing(true);
-        content.setPadding(true);
-        content.getStyle().set("padding", "24px");
-        
-        // Summary
-        Span accountsSummary = new Span();
-        accountsSummary.getStyle()
-            .set("color", "#9CA3AF")
-            .set("margin-bottom", "16px");
-        updateAccountsSummary(accountsSummary);
-        
-        // Action buttons
-        HorizontalLayout actions = new HorizontalLayout();
-        actions.setSpacing(true);
-        actions.getStyle().set("margin-bottom", "20px");
-        
-        Button linkAccountButton = new Button("Link Bank Account", VaadinIcon.PLUS.create());
-        linkAccountButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        linkAccountButton.getStyle()
-            .set("background", "linear-gradient(135deg, #00d4ff 0%, #009bb8 100%)")
-            .set("border", "none");
-        linkAccountButton.addClickListener(e -> {
-            // Close dialog to avoid z-index conflicts with Plaid iframe
-            dialog.close();
-            linkNewAccount();
+        BankAccountManagementDialog dialog = new BankAccountManagementDialog(
+            bankAccountService,
+            plaidService,
+            bankAccountRepository
+        );
+        // When dialog closes, reload the entire page so all views re-query fresh data
+        dialog.addDialogCloseActionListener(e -> {
+            new Thread(() -> {
+                try {
+                    // Small delay to ensure database changes are persisted
+                    Thread.sleep(300);
+
+                    getUI().ifPresent(ui -> ui.access(() -> ui.getPage().reload()));
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                }
+            }).start();
         });
-        
-        Button syncButton = new Button("Sync Transactions", VaadinIcon.REFRESH.create());
-        syncButton.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
-        syncButton.addClickListener(e -> syncAllTransactions());
-        
-        actions.add(linkAccountButton, syncButton);
-        
-        // Accounts grid
-        Grid<BankAccount> accountsGrid = createBankAccountsGrid();
-        accountsGrid.setItems(bankAccountService.getActiveBankAccounts());
-        
-        content.add(accountsSummary, actions, accountsGrid);
-        
-        // Footer
-        Button closeFooterButton = new Button("Close");
-        closeFooterButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-        closeFooterButton.getStyle()
-            .set("color", "#9CA3AF")
-            .set("border-radius", "10px");
-        closeFooterButton.addClickListener(e -> {
-            dialog.close();
-            updateCreditCardSection();
-        });
-        
-        VerticalLayout dialogLayout = new VerticalLayout();
-        dialogLayout.setPadding(false);
-        dialogLayout.setSpacing(false);
-        dialogLayout.add(header, content, closeFooterButton);
-        
-        dialog.add(dialogLayout);
         dialog.open();
-    }
-    
-    private Grid<BankAccount> createBankAccountsGrid() {
-        Grid<BankAccount> grid = new Grid<>(BankAccount.class, false);
-        grid.addThemeVariants(GridVariant.LUMO_ROW_STRIPES);
-        grid.setHeight("400px");
-        
-        // Style for dark theme
-        grid.getStyle()
-            .set("background", "#262238")
-            .set("border-radius", "10px")
-            .set("overflow", "hidden");
-        
-        grid.addColumn(BankAccount::getAccountName).setHeader("Account Name").setFlexGrow(1);
-        grid.addColumn(BankAccount::getAccountType).setHeader("Type").setWidth("120px");
-        grid.addColumn(BankAccount::getInstitutionName).setHeader("Institution").setFlexGrow(1);
-        grid.addColumn(BankAccount::getMask).setHeader("Account #").setWidth("100px");
-        grid.addColumn(account -> account.getIsActive() ? "Active" : "Inactive")
-            .setHeader("Status").setWidth("100px");
-        
-        grid.addComponentColumn(account -> {
-            Button removeBtn = new Button("Remove", VaadinIcon.TRASH.create());
-            removeBtn.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
-            removeBtn.addClickListener(e -> confirmRemoveAccount(account, grid));
-            return removeBtn;
-        }).setHeader("Actions").setWidth("120px");
-        
-        return grid;
-    }
-    
-    private void updateAccountsSummary(Span summarySpan) {
-        List<BankAccount> accounts = bankAccountService.getActiveBankAccounts();
-        summarySpan.setText(String.format("%d active account(s) connected", accounts.size()));
-    }
-    
-    private void linkNewAccount() {
-        try {
-            String linkToken = plaidService.createLinkToken("user-id");
-            
-            // Show loading notification
-            Notification loadingNotif = Notification.show("Opening Plaid Link...",
-                    3000, Notification.Position.TOP_CENTER);
-            loadingNotif.addThemeVariants(NotificationVariant.LUMO_PRIMARY);
-            
-            // Call JavaScript to open Plaid Link
-            getElement().executeJs(
-                "window.initPlaidLink($0, " +
-                    // Success callback
-                    "function(publicToken, metadata) {" +
-                    "  $1.$server.onPlaidSuccess(publicToken, metadata);" +
-                    "}," +
-                    // Exit callback  
-                    "function(success, message) {" +
-                    "  if (!success) {" +
-                    "    $1.$server.onPlaidExit(message);" +
-                    "  }" +
-                    "}" +
-                ");",
-                linkToken,
-                getElement()
-            );
-                    
-        } catch (Exception e) {
-            Notification.show("Error creating link token: " + e.getMessage(),
-                    3000, Notification.Position.TOP_CENTER)
-                .addThemeVariants(NotificationVariant.LUMO_ERROR);
-        }
     }
     
     @ClientCallable
@@ -1501,14 +1759,14 @@ public class ModernDashboardView extends Div {
             
             // Show success notification
             Notification successNotif = Notification.show(
-                "✅ Bank account linked successfully! Your dashboard has been updated.", 
+                "Bank account linked successfully! Your dashboard has been updated.", 
                 5000, 
                 Notification.Position.TOP_CENTER
             );
             successNotif.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
             
         } catch (Exception e) {
-            Notification.show("❌ Error linking account: " + e.getMessage(),
+            Notification.show("Error linking account: " + e.getMessage(),
                     5000, Notification.Position.TOP_CENTER)
                 .addThemeVariants(NotificationVariant.LUMO_ERROR);
         }
@@ -1521,64 +1779,103 @@ public class ModernDashboardView extends Div {
             .addThemeVariants(NotificationVariant.LUMO_CONTRAST);
     }
     
-    private void syncAllTransactions() {
-        List<BankAccount> accounts = bankAccountService.getActiveBankAccounts();
-        if (accounts.isEmpty()) {
-            Notification.show("No active accounts to sync", 3000, Notification.Position.TOP_CENTER)
-                .addThemeVariants(NotificationVariant.LUMO_CONTRAST);
-            return;
-        }
-        
-        accounts.forEach(account -> {
-            try {
-                plaidService.syncTransactionsForAccount(account);
-            } catch (Exception e) {
-                Notification.show("Error syncing " + account.getAccountName() + ": " + e.getMessage(),
-                        3000, Notification.Position.TOP_CENTER)
-                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
-            }
-        });
-        
-        Notification.show("Transactions synced successfully!", 3000, Notification.Position.TOP_END)
-            .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-            
-        // Refresh the page to show new data
-        getUI().ifPresent(ui -> ui.getPage().reload());
-    }
-    
-    private void confirmRemoveAccount(BankAccount account, Grid<BankAccount> grid) {
-        ConfirmDialog confirmDialog = new ConfirmDialog();
-        confirmDialog.setHeader("Remove Bank Account");
-        confirmDialog.setText("Are you sure you want to remove " + account.getAccountName() + "?");
-        
-        confirmDialog.setCancelable(true);
-        confirmDialog.addCancelListener(e -> confirmDialog.close());
-        
-        confirmDialog.setConfirmText("Remove");
-        confirmDialog.addConfirmListener(e -> {
-            try {
-                plaidService.removeBankAccount(account.getId());
-                grid.setItems(bankAccountService.getActiveBankAccounts());
-                
-                Notification.show("Account removed successfully", 3000, Notification.Position.TOP_END)
-                    .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-                    
-                updateCreditCardSection();
-            } catch (Exception ex) {
-                Notification.show("Error removing account: " + ex.getMessage(),
-                        3000, Notification.Position.TOP_CENTER)
-                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
-            }
-        });
-        
-        confirmDialog.open();
-    }
-    
     private void updateCreditCardSection() {
         if (creditCardSection != null) {
             Div newCard = createCreditCard();
             creditCardSection.removeAll();
             newCard.getChildren().forEach(creditCardSection::add);
+        }
+    }
+    
+    /**
+     * Refresh the savings section with latest data
+     */
+    public void refreshSavingsSection() {
+        if (savingsSectionContainer == null) {
+            return;
+        }
+        
+        // Clear existing content
+        savingsSectionContainer.removeAll();
+        
+        // Recreate the savings section content
+        Div newSection = createSavingsSection();
+        newSection.getChildren().forEach(savingsSectionContainer::add);
+    }
+    
+    /**
+     * Comprehensive dashboard refresh - updates all sections with latest data
+     */
+    public void refreshDashboard() {
+        // Refresh credit card section (bank accounts)
+        if (creditCardSection != null) {
+            creditCardSection.removeAll();
+            Div newCreditCard = createCreditCard();
+            newCreditCard.getChildren().forEach(creditCardSection::add);
+        }
+        
+        // Refresh summary cards (earnings, spendings, savings)
+        if (summaryCardsContainer != null) {
+            summaryCardsContainer.removeAll();
+            Div newSummaryCards = createSummaryCards();
+            newSummaryCards.getChildren().forEach(summaryCardsContainer::add);
+        }
+        
+        // Refresh activity section (recent transactions)
+        if (activitySectionContainer != null) {
+            activitySectionContainer.removeAll();
+            Div newActivitySection = createActivitySection();
+            newActivitySection.getChildren().forEach(activitySectionContainer::add);
+        }
+        
+        // Refresh activity statistics
+        if (activityStatsContainer != null) {
+            activityStatsContainer.removeAll();
+            Div newActivityStats = createActivityStatistics();
+            newActivityStats.getChildren().forEach(activityStatsContainer::add);
+        }
+        
+        // Refresh daily expenses
+        if (dailyExpensesContainer != null) {
+            dailyExpensesContainer.removeAll();
+            Div newDailyExpenses = createDailyExpenses();
+            newDailyExpenses.getChildren().forEach(dailyExpensesContainer::add);
+        }
+        
+        // Refresh all expenses
+        if (allExpensesContainer != null) {
+            allExpensesContainer.removeAll();
+            Div newAllExpenses = createAllExpenses();
+            newAllExpenses.getChildren().forEach(allExpensesContainer::add);
+        }
+        
+        // Refresh savings section
+        refreshSavingsSection();
+    }
+    
+    /**
+     * Get VaadinIcon based on icon name string
+     */
+    private VaadinIcon getIconForGoal(String iconName) {
+        if (iconName == null) {
+            return VaadinIcon.PIGGY_BANK_COIN; // Default icon
+        }
+        
+        try {
+            return VaadinIcon.valueOf(iconName.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            // Fallback mapping for common icons
+            return switch (iconName.toLowerCase()) {
+                case "home", "house" -> VaadinIcon.HOME;
+                case "desktop", "computer", "pc" -> VaadinIcon.DESKTOP;
+                case "airplane", "flight", "travel", "trip" -> VaadinIcon.AIRPLANE;
+                case "shield", "emergency", "safety" -> VaadinIcon.SHIELD;
+                case "car", "vehicle" -> VaadinIcon.CAR;
+                case "education", "school", "book" -> VaadinIcon.BOOK;
+                case "health", "medical" -> VaadinIcon.HEART;
+                case "gift" -> VaadinIcon.GIFT;
+                default -> VaadinIcon.PIGGY_BANK_COIN;
+            };
         }
     }
 }

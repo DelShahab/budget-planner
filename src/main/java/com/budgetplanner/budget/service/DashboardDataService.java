@@ -1,6 +1,7 @@
 package com.budgetplanner.budget.service;
 
 import com.budgetplanner.budget.model.BankTransaction;
+import com.budgetplanner.budget.util.CurrencyFormatter;
 import com.budgetplanner.budget.repository.BankTransactionRepository;
 import org.springframework.stereotype.Service;
 
@@ -34,7 +35,7 @@ public class DashboardDataService {
      * Format USD amount
      */
     public String formatUSD(double usdAmount) {
-        return String.format("$%.2f", Math.abs(usdAmount));
+        return CurrencyFormatter.formatUSD(Math.abs(usdAmount));
     }
     
     /**
@@ -199,5 +200,69 @@ public class DashboardDataService {
             case "transportation", "travel" -> "#3b82f6";
             default -> "#6b7280";
         };
+    }
+    
+    /**
+     * Get today's expenses (alias for getDailyExpenses)
+     */
+    public double getTodayExpenses() {
+        return getDailyExpenses();
+    }
+    
+    /**
+     * Get activity statistics by custom date range
+     * Returns Map of LocalDate to expense amount
+     */
+    public Map<LocalDate, Double> getActivityStatisticsByDateRange(LocalDate startDate, LocalDate endDate) {
+        List<BankTransaction> transactions = transactionRepository
+                .findByTransactionDateBetween(startDate, endDate);
+        
+        Map<LocalDate, Double> dailyTotals = new HashMap<>();
+        
+        // Group by date and sum expenses
+        transactions.stream()
+                .filter(t -> t.getAmount() < 0)
+                .forEach(t -> {
+                    LocalDate date = t.getTransactionDate();
+                    double amount = Math.abs(t.getAmount());
+                    dailyTotals.merge(date, amount, Double::sum);
+                });
+        
+        return dailyTotals;
+    }
+    
+    /**
+     * Calculate daily budget limit based on monthly income/budget
+     * Uses a smart algorithm: (Monthly Income - Monthly Fixed Costs) / Days in Month
+     */
+    public double getDailyBudgetLimit() {
+        LocalDate now = LocalDate.now();
+        LocalDate startOfMonth = now.withDayOfMonth(1);
+        LocalDate endOfMonth = now.withDayOfMonth(now.lengthOfMonth());
+        int daysInMonth = now.lengthOfMonth();
+        
+        // Get monthly income
+        List<BankTransaction> monthlyTransactions = transactionRepository
+                .findByTransactionDateBetween(startOfMonth, endOfMonth);
+        
+        double monthlyIncome = monthlyTransactions.stream()
+                .filter(t -> t.getAmount() > 0)
+                .mapToDouble(BankTransaction::getAmount)
+                .sum();
+        
+        // Estimate monthly fixed costs (recurring bills, rent, etc.) - typically 40-50% of income
+        // For now, we'll use 40% as fixed costs
+        double estimatedFixedCosts = monthlyIncome * 0.40;
+        
+        // Calculate daily discretionary budget
+        double discretionaryBudget = monthlyIncome - estimatedFixedCosts;
+        double dailyBudget = discretionaryBudget / daysInMonth;
+        
+        // If no income data, use a default daily budget of 1,500,000 IDR (~$100)
+        if (dailyBudget <= 0) {
+            dailyBudget = 1500000.0; // Default: ~$100/day
+        }
+        
+        return dailyBudget;
     }
 }

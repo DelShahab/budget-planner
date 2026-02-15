@@ -22,12 +22,11 @@ public class RecurringTransactionDataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        // Only add sample data if no recurring transactions exist
-        if (recurringTransactionRepository.count() == 0) {
-            System.out.println("Initializing sample recurring transaction data...");
-            createSampleRecurringTransactions();
-            System.out.println("Sample recurring transaction data initialized successfully!");
-        }
+        // Demo seeding disabled: keep recurring-transactions empty on startup
+        // If you want demo data again, re-enable the call below.
+        // if (recurringTransactionRepository.count() == 0) {
+        //     createSampleRecurringTransactions();
+        // }
     }
 
     private void createSampleRecurringTransactions() {

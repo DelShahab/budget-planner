@@ -1,7 +1,11 @@
 package com.budgetplanner.budget;
 
 import com.budgetplanner.budget.model.BudgetItem;
+import com.budgetplanner.budget.model.SavingsGoal;
 import com.budgetplanner.budget.repository.BudgetItemRepository;
+import com.budgetplanner.budget.service.DashboardDataService;
+import com.budgetplanner.budget.service.SavingsGoalService;
+import com.budgetplanner.budget.service.UserSessionService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.dialog.Dialog;
@@ -11,6 +15,7 @@ import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H3;
+import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
@@ -25,8 +30,11 @@ import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.component.dependency.CssImport;
+import com.vaadin.flow.server.StreamResource;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.io.ByteArrayInputStream;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 
@@ -42,14 +50,21 @@ import java.util.List;
 public class SavingsView extends VerticalLayout {
 
     private final BudgetItemRepository budgetItemRepository;
+    private final SavingsGoalService savingsGoalService;
+    private final DashboardDataService dashboardDataService;
+    private final UserSessionService userSessionService;
     
-    private Grid<BudgetItem> savingsGrid;
+    private Grid<SavingsGoal> savingsGrid;
     private Div summaryCards;
     private VerticalLayout contentArea;
 
     @Autowired
-    public SavingsView(BudgetItemRepository budgetItemRepository) {
+    public SavingsView(BudgetItemRepository budgetItemRepository, SavingsGoalService savingsGoalService, 
+                       DashboardDataService dashboardDataService, UserSessionService userSessionService) {
         this.budgetItemRepository = budgetItemRepository;
+        this.savingsGoalService = savingsGoalService;
+        this.dashboardDataService = dashboardDataService;
+        this.userSessionService = userSessionService;
         
         setSizeFull();
         setPadding(false);
@@ -97,22 +112,37 @@ public class SavingsView extends VerticalLayout {
             .set("height", "100vh");
         sidebar.getStyle().set("gap", "35px");
 
-        // Logo at top
+        // Logo at top - show user avatar if available
         Div logo = new Div();
         logo.getStyle()
             .set("width", "45px")
             .set("height", "45px")
-            .set("background", "#01a1be")
             .set("border-radius", "50%")
-            .set("display", "flex")
-            .set("align-items", "center")
-            .set("justify-content", "center")
-            .set("color", "white")
-            .set("font-size", "18px")
-            .set("font-weight", "bold")
+            .set("overflow", "hidden")
             .set("margin", "20px auto 0");
-        Span logoText = new Span("AM");
-        logo.add(logoText);
+        
+        if (userSessionService.hasAvatar()) {
+            Image img = new Image();
+            byte[] avatarData = userSessionService.getAvatarFromSession();
+            StreamResource resource = new StreamResource("avatar.png", 
+                () -> new ByteArrayInputStream(avatarData));
+            img.setSrc(resource);
+            img.setWidth("45px");
+            img.setHeight("45px");
+            img.getStyle().set("object-fit", "cover");
+            logo.add(img);
+        } else {
+            logo.getStyle()
+                .set("background", "#01a1be")
+                .set("display", "flex")
+                .set("align-items", "center")
+                .set("justify-content", "center")
+                .set("color", "white")
+                .set("font-size", "18px")
+                .set("font-weight", "bold");
+            Span logoText = new Span(userSessionService.getUserInitials());
+            logo.add(logoText);
+        }
 
         // Navigation icons container
         VerticalLayout navContainer = new VerticalLayout();
@@ -122,7 +152,7 @@ public class SavingsView extends VerticalLayout {
         navContainer.getStyle().set("gap", "30px");
 
         Button homeBtn = createNavButton(VaadinIcon.HOME, "Home", false);
-        homeBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("modern-dashboard")));
+        homeBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("")));
         
         Button trendsBtn = createNavButton(VaadinIcon.TRENDING_UP, "Trends", false);
         trendsBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("trends")));
@@ -131,6 +161,9 @@ public class SavingsView extends VerticalLayout {
         recurringBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("recurring-transactions")));
         
         Button savingsBtn = createNavButton(VaadinIcon.PIGGY_BANK, "Savings", true); // Active!
+        
+        Button planBtn = createNavButton(VaadinIcon.CALENDAR, "Monthly Plan", false);
+        planBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("monthly-plan")));
         
         Button notificationsBtn = createNavButton(VaadinIcon.STAR, "Notifications", false);
         notificationsBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("notifications")));
@@ -143,7 +176,7 @@ public class SavingsView extends VerticalLayout {
         
         Button settingsBtn = createNavButton(VaadinIcon.COG, "Settings", false);
 
-        navContainer.add(homeBtn, trendsBtn, recurringBtn, savingsBtn, notificationsBtn, userBtn, historyBtn, settingsBtn);
+        navContainer.add(homeBtn, trendsBtn, recurringBtn, savingsBtn, planBtn, notificationsBtn, userBtn, historyBtn, settingsBtn);
         
         sidebar.add(logo, navContainer);
         return sidebar;
@@ -234,7 +267,7 @@ public class SavingsView extends VerticalLayout {
     }
 
     private void createSavingsGrid() {
-        savingsGrid = new Grid<>(BudgetItem.class, false);
+        savingsGrid = new Grid<>(SavingsGoal.class, false);
         savingsGrid.addClassName("savings-grid");
         savingsGrid.setSizeFull();
         savingsGrid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
@@ -246,34 +279,35 @@ public class SavingsView extends VerticalLayout {
             .set("padding", "20px");
         
         // Add columns
-        savingsGrid.addColumn(BudgetItem::getCategory)
+        savingsGrid.addColumn(SavingsGoal::getGoalName)
             .setHeader("Savings Goal")
             .setSortable(true)
             .setFlexGrow(2);
         
-        savingsGrid.addColumn(item -> String.format("$%.2f", item.getPlanned()))
+        savingsGrid.addColumn(item -> {
+            double usd = dashboardDataService.convertToUSD(item.getTargetAmount());
+            return dashboardDataService.formatUSD(usd);
+        })
             .setHeader("Target Amount")
             .setSortable(true)
             .setWidth("150px");
         
-        savingsGrid.addColumn(item -> String.format("$%.2f", item.getActual()))
+        savingsGrid.addColumn(item -> {
+            double usd = dashboardDataService.convertToUSD(item.getCurrentAmount());
+            return dashboardDataService.formatUSD(usd);
+        })
             .setHeader("Current Amount")
             .setSortable(true)
             .setWidth("150px");
         
-        savingsGrid.addColumn(item -> {
-            double progress = item.getPlanned() > 0 
-                ? (item.getActual() / item.getPlanned()) * 100 
-                : 0;
-            return String.format("%.1f%%", progress);
-        })
+        savingsGrid.addColumn(item -> String.format("%d%%", item.getProgressPercentage()))
             .setHeader("Progress")
             .setSortable(true)
             .setWidth("120px");
         
         savingsGrid.addColumn(item -> {
-            double remaining = item.getPlanned() - item.getActual();
-            return String.format("$%.2f", Math.max(0, remaining));
+            double usd = dashboardDataService.convertToUSD(item.getRemainingAmount());
+            return dashboardDataService.formatUSD(usd);
         })
             .setHeader("Remaining")
             .setSortable(true)
@@ -335,16 +369,16 @@ public class SavingsView extends VerticalLayout {
                 return;
             }
             
-            YearMonth currentMonth = YearMonth.now();
-            BudgetItem savingsGoal = new BudgetItem();
-            savingsGoal.setCategory(goalNameField.getValue());
-            savingsGoal.setPlanned(targetAmountField.getValue());
-            savingsGoal.setActual(currentAmountField.getValue() != null ? currentAmountField.getValue() : 0.0);
-            savingsGoal.setCategoryType("SAVINGS");
-            savingsGoal.setYear(currentMonth.getYear());
-            savingsGoal.setMonth(currentMonth.getMonthValue());
+            SavingsGoal savingsGoal = new SavingsGoal();
+            savingsGoal.setGoalName(goalNameField.getValue());
+            savingsGoal.setTargetAmount(targetAmountField.getValue());
+            savingsGoal.setCurrentAmount(currentAmountField.getValue() != null ? currentAmountField.getValue() : 0.0);
+            savingsGoal.setCategory("Savings");
+            savingsGoal.setIconName("PIGGY_BANK_COIN");
+            savingsGoal.setStartDate(LocalDate.now());
+            savingsGoal.setIsActive(true);
             
-            budgetItemRepository.save(savingsGoal);
+            savingsGoalService.createGoal(savingsGoal);
             
             Notification.show("Savings goal added successfully!", 3000, Notification.Position.TOP_END)
                 .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
@@ -361,7 +395,7 @@ public class SavingsView extends VerticalLayout {
         dialog.open();
     }
 
-    private void openEditGoalDialog(BudgetItem item) {
+    private void openEditGoalDialog(SavingsGoal item) {
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("Edit Savings Goal");
         dialog.setModal(true);
@@ -373,27 +407,27 @@ public class SavingsView extends VerticalLayout {
         );
         
         TextField goalNameField = new TextField("Goal Name");
-        goalNameField.setValue(item.getCategory());
+        goalNameField.setValue(item.getGoalName());
         goalNameField.setWidthFull();
         
         NumberField targetAmountField = new NumberField("Target Amount");
-        targetAmountField.setValue(item.getPlanned());
+        targetAmountField.setValue(item.getTargetAmount());
         targetAmountField.setPrefixComponent(new Span("$"));
         targetAmountField.setWidthFull();
         
         NumberField currentAmountField = new NumberField("Current Amount");
-        currentAmountField.setValue(item.getActual());
+        currentAmountField.setValue(item.getCurrentAmount());
         currentAmountField.setPrefixComponent(new Span("$"));
         currentAmountField.setWidthFull();
         
         form.add(goalNameField, targetAmountField, currentAmountField);
         
         Button saveButton = new Button("Save", e -> {
-            item.setCategory(goalNameField.getValue());
-            item.setPlanned(targetAmountField.getValue());
-            item.setActual(currentAmountField.getValue());
+            item.setGoalName(goalNameField.getValue());
+            item.setTargetAmount(targetAmountField.getValue());
+            item.setCurrentAmount(currentAmountField.getValue());
             
-            budgetItemRepository.save(item);
+            savingsGoalService.updateGoal(item);
             
             Notification.show("Savings goal updated successfully!", 3000, Notification.Position.TOP_END)
                 .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
@@ -410,17 +444,17 @@ public class SavingsView extends VerticalLayout {
         dialog.open();
     }
 
-    private void deleteGoal(BudgetItem item) {
+    private void deleteGoal(SavingsGoal item) {
         Dialog confirmDialog = new Dialog();
         confirmDialog.setHeaderTitle("Confirm Delete");
         confirmDialog.setModal(true);
         
         Div content = new Div();
-        content.setText("Are you sure you want to delete this savings goal: " + item.getCategory() + "?");
+        content.setText("Are you sure you want to delete this savings goal: " + item.getGoalName() + "?");
         content.getStyle().set("padding", "20px");
         
         Button deleteButton = new Button("Delete", e -> {
-            budgetItemRepository.delete(item);
+            savingsGoalService.deleteGoal(item.getId());
             
             Notification.show("Savings goal deleted successfully!", 3000, Notification.Position.TOP_END)
                 .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
@@ -443,35 +477,27 @@ public class SavingsView extends VerticalLayout {
     }
 
     private void loadSavingsGoals() {
-        YearMonth currentMonth = YearMonth.now();
-        List<BudgetItem> savingsGoals = budgetItemRepository.findByCategoryTypeAndYearAndMonth(
-            "SAVINGS", currentMonth.getYear(), currentMonth.getMonthValue());
-        
+        List<SavingsGoal> savingsGoals = savingsGoalService.getAllActiveGoals();
         savingsGrid.setItems(savingsGoals);
     }
 
     private void updateSummaryCards() {
         summaryCards.removeAll();
         
-        YearMonth currentMonth = YearMonth.now();
-        List<BudgetItem> savingsGoals = budgetItemRepository.findByCategoryTypeAndYearAndMonth(
-            "SAVINGS", currentMonth.getYear(), currentMonth.getMonthValue());
+        List<SavingsGoal> savingsGoals = savingsGoalService.getAllActiveGoals();
         
-        double totalTarget = savingsGoals.stream()
-            .mapToDouble(BudgetItem::getPlanned)
-            .sum();
-        
-        double totalSaved = savingsGoals.stream()
-            .mapToDouble(BudgetItem::getActual)
-            .sum();
-        
+        double totalTarget = savingsGoalService.getTotalTargetSavings();
+        double totalSaved = savingsGoalService.getTotalCurrentSavings();
         double totalRemaining = totalTarget - totalSaved;
-        double overallProgress = totalTarget > 0 ? (totalSaved / totalTarget) * 100 : 0;
+        double overallProgress = savingsGoalService.getOverallProgressPercentage();
+        
+        double totalTargetUSD = dashboardDataService.convertToUSD(totalTarget);
+        double totalSavedUSD = dashboardDataService.convertToUSD(totalSaved);
         
         summaryCards.add(
             createSummaryCard("Total Goals", String.valueOf(savingsGoals.size()), "#60a5fa", VaadinIcon.PIGGY_BANK),
-            createSummaryCard("Total Target", String.format("$%.2f", totalTarget), "#4ade80", VaadinIcon.DOLLAR),
-            createSummaryCard("Total Saved", String.format("$%.2f", totalSaved), "#00d4ff", VaadinIcon.CHECK_CIRCLE),
+            createSummaryCard("Total Target", dashboardDataService.formatUSD(totalTargetUSD), "#4ade80", VaadinIcon.DOLLAR),
+            createSummaryCard("Total Saved", dashboardDataService.formatUSD(totalSavedUSD), "#00d4ff", VaadinIcon.CHECK_CIRCLE),
             createSummaryCard("Overall Progress", String.format("%.1f%%", overallProgress), "#fbbf24", VaadinIcon.CHART)
         );
     }

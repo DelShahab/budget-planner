@@ -45,17 +45,24 @@ public class BankAccountManagementDialog extends Dialog {
     
     private void setupDialog() {
         setHeaderTitle("Bank Account Management");
-        setWidth("800px");
-        setHeight("600px");
+        setWidth("900px");
         setModal(true);
         setDraggable(true);
         setResizable(true);
+        
+        // Apply modern dark theme styling
+        getElement().getThemeList().add("modern-dialog");
+        getElement().getStyle()
+            .set("background", "#0f0a1e")
+            .set("border", "1px solid rgba(255, 255, 255, 0.1)")
+            .set("border-radius", "15px")
+            .set("box-shadow", "0 25px 50px -12px rgba(0, 0, 0, 0.5)");
     }
     
     private void createContent() {
         VerticalLayout content = new VerticalLayout();
         content.setSpacing(true);
-        content.setPadding(false);
+        content.setPadding(true);
         
         // Header with summary
         HorizontalLayout header = createHeader();
@@ -70,8 +77,18 @@ public class BankAccountManagementDialog extends Dialog {
         add(content);
         
         // Footer buttons
-        Button closeButton = new Button("Close", e -> close());
+        Button closeButton = new Button("Close", e -> {
+            // First close the dialog
+            close();
+            // Then reload the whole page so all views re-query fresh data
+            getUI().ifPresent(ui -> ui.getPage().reload());
+        });
         closeButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        closeButton.getStyle()
+            .set("border-radius", "10px")
+            .set("padding", "10px 24px")
+            .set("color", "#9CA3AF")
+            .set("font-weight", "600");
         getFooter().add(closeButton);
     }
     
@@ -80,12 +97,23 @@ public class BankAccountManagementDialog extends Dialog {
         header.setWidthFull();
         header.setJustifyContentMode(HorizontalLayout.JustifyContentMode.BETWEEN);
         header.setAlignItems(HorizontalLayout.Alignment.CENTER);
+        header.getStyle()
+            .set("padding", "20px 0")
+            .set("border-bottom", "1px solid rgba(255, 255, 255, 0.1)")
+            .set("margin-bottom", "20px");
         
         H3 title = new H3("Connected Bank Accounts");
-        title.getStyle().set("margin", "0");
+        title.getStyle()
+            .set("margin", "0")
+            .set("color", "white")
+            .set("font-weight", "700")
+            .set("font-size", "20px");
         
         accountsSummary = new Span();
-        accountsSummary.getStyle().set("color", "var(--lumo-secondary-text-color)");
+        accountsSummary.getStyle()
+            .set("color", "#9CA3AF")
+            .set("font-size", "14px")
+            .set("font-weight", "500");
         updateAccountsSummary();
         
         header.add(title, accountsSummary);
@@ -95,13 +123,32 @@ public class BankAccountManagementDialog extends Dialog {
     private HorizontalLayout createActionButtons() {
         HorizontalLayout actions = new HorizontalLayout();
         actions.setSpacing(true);
+        actions.getStyle().set("margin-bottom", "20px");
         
         linkAccountButton = new Button("Link Bank Account", VaadinIcon.PLUS.create());
         linkAccountButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        linkAccountButton.getStyle()
+            .set("background", "linear-gradient(135deg, #00d4ff 0%, #009bb8 100%)")
+            .set("border", "none")
+            .set("border-radius", "10px")
+            .set("padding", "12px 24px")
+            .set("font-weight", "600")
+            .set("cursor", "pointer")
+            .set("transition", "all 0.3s ease")
+            .set("box-shadow", "0 4px 15px rgba(0, 212, 255, 0.3)");
         linkAccountButton.addClickListener(e -> openPlaidLink());
         
         syncTransactionsButton = new Button("Sync Transactions", VaadinIcon.REFRESH.create());
         syncTransactionsButton.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
+        syncTransactionsButton.getStyle()
+            .set("border-radius", "10px")
+            .set("padding", "12px 24px")
+            .set("font-weight", "600")
+            .set("border", "1px solid rgba(255, 255, 255, 0.2)")
+            .set("background", "rgba(255, 255, 255, 0.05)")
+            .set("color", "white")
+            .set("cursor", "pointer")
+            .set("transition", "all 0.3s ease");
         syncTransactionsButton.addClickListener(e -> syncAllTransactions());
         
         actions.add(linkAccountButton, syncTransactionsButton);
@@ -113,6 +160,13 @@ public class BankAccountManagementDialog extends Dialog {
         grid.setHeight("400px");
         grid.addThemeVariants(GridVariant.LUMO_ROW_STRIPES, GridVariant.LUMO_COMPACT);
         
+        // Modern dark theme styling for grid
+        grid.getStyle()
+            .set("background", "#1a1625")
+            .set("border-radius", "10px")
+            .set("overflow", "hidden")
+            .set("border", "1px solid rgba(255, 255, 255, 0.1)");
+        
         // Institution column with icon
         grid.addComponentColumn(account -> {
             HorizontalLayout layout = new HorizontalLayout();
@@ -120,11 +174,14 @@ public class BankAccountManagementDialog extends Dialog {
             layout.setSpacing(true);
             
             Icon bankIcon = VaadinIcon.INSTITUTION.create();
-            bankIcon.setSize("16px");
-            bankIcon.getStyle().set("color", "var(--lumo-primary-color)");
+            bankIcon.setSize("18px");
+            bankIcon.getStyle().set("color", "#00d4ff");
             
             Span institutionName = new Span(account.getInstitutionName());
-            institutionName.getStyle().set("font-weight", "500");
+            institutionName.getStyle()
+                .set("font-weight", "600")
+                .set("color", "white")
+                .set("font-size", "14px");
             
             layout.add(bankIcon, institutionName);
             return layout;
@@ -140,9 +197,13 @@ public class BankAccountManagementDialog extends Dialog {
         // Status column with badge
         grid.addComponentColumn(account -> {
             Span statusBadge = new Span(account.getIsActive() ? "Active" : "Inactive");
-            statusBadge.getElement().getThemeList().add(
-                    account.getIsActive() ? "badge success" : "badge error"
-            );
+            statusBadge.getStyle()
+                .set("padding", "4px 12px")
+                .set("border-radius", "20px")
+                .set("font-size", "12px")
+                .set("font-weight", "600")
+                .set("background", account.getIsActive() ? "rgba(16, 185, 129, 0.2)" : "rgba(239, 68, 68, 0.2)")
+                .set("color", account.getIsActive() ? "#10b981" : "#ef4444");
             return statusBadge;
         }).setHeader("Status").setFlexGrow(1);
         
@@ -162,11 +223,19 @@ public class BankAccountManagementDialog extends Dialog {
             Button syncButton = new Button(VaadinIcon.REFRESH.create());
             syncButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE, ButtonVariant.LUMO_SMALL);
             syncButton.getElement().setProperty("title", "Sync this account");
+            syncButton.getStyle()
+                .set("color", "#00d4ff")
+                .set("cursor", "pointer")
+                .set("transition", "all 0.3s ease");
             syncButton.addClickListener(e -> syncAccount(account));
             
             Button removeButton = new Button(VaadinIcon.TRASH.create());
             removeButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE, ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR);
             removeButton.getElement().setProperty("title", "Remove account");
+            removeButton.getStyle()
+                .set("color", "#ef4444")
+                .set("cursor", "pointer")
+                .set("transition", "all 0.3s ease");
             removeButton.addClickListener(e -> confirmRemoveAccount(account));
             
             actions.add(syncButton, removeButton);
@@ -183,30 +252,41 @@ public class BankAccountManagementDialog extends Dialog {
             
             // Show Plaid Link integration dialog
             Div placeholder = new Div();
-            placeholder.getStyle().set("padding", "20px");
-            placeholder.getStyle().set("text-align", "center");
-            placeholder.getStyle().set("border", "2px dashed var(--lumo-contrast-30pct)");
-            placeholder.getStyle().set("border-radius", "var(--lumo-border-radius)");
+            placeholder.getStyle()
+                .set("padding", "30px")
+                .set("text-align", "center")
+                .set("border", "2px dashed rgba(0, 212, 255, 0.3)")
+                .set("border-radius", "15px")
+                .set("background", "rgba(0, 212, 255, 0.05)");
             
             Span message = new Span("🏦 Plaid Link Ready");
-            message.getStyle().set("display", "block");
-            message.getStyle().set("font-size", "var(--lumo-font-size-l)");
-            message.getStyle().set("margin-bottom", "10px");
+            message.getStyle()
+                .set("display", "block")
+                .set("font-size", "24px")
+                .set("font-weight", "700")
+                .set("color", "white")
+                .set("margin-bottom", "20px");
             
             Span instructions = new Span("Link Token Created: " + linkToken.substring(0, 20) + "..." + 
                     "\n\nFor sandbox testing, use these credentials:\n" +
                     "Bank: First Platypus Bank\n" +
                     "Username: user_good\n" +
                     "Password: pass_good");
-            instructions.getStyle().set("color", "var(--lumo-secondary-text-color)");
-            instructions.getStyle().set("font-size", "var(--lumo-font-size-s)");
-            instructions.getStyle().set("white-space", "pre-line");
+            instructions.getStyle()
+                .set("color", "#9CA3AF")
+                .set("font-size", "14px")
+                .set("white-space", "pre-line")
+                .set("line-height", "1.8");
             
             placeholder.add(message, instructions);
             
             Dialog linkDialog = new Dialog();
             linkDialog.setHeaderTitle("Connect Bank Account - Plaid Sandbox");
-            linkDialog.setWidth("500px");
+            linkDialog.setWidth("550px");
+            linkDialog.getElement().getStyle()
+                .set("background", "#0f0a1e")
+                .set("border", "1px solid rgba(255, 255, 255, 0.1)")
+                .set("border-radius", "15px");
             linkDialog.add(placeholder);
             
             Button simulateButton = new Button("Simulate Sandbox Connection", e -> {
@@ -214,9 +294,18 @@ public class BankAccountManagementDialog extends Dialog {
                 linkDialog.close();
             });
             simulateButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+            simulateButton.getStyle()
+                .set("background", "linear-gradient(135deg, #00d4ff 0%, #009bb8 100%)")
+                .set("border", "none")
+                .set("border-radius", "10px")
+                .set("padding", "12px 24px")
+                .set("font-weight", "600");
             
             Button cancelButton = new Button("Cancel", e -> linkDialog.close());
             cancelButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+            cancelButton.getStyle()
+                .set("border-radius", "10px")
+                .set("color", "#9CA3AF");
             
             linkDialog.getFooter().add(cancelButton, simulateButton);
             linkDialog.open();
@@ -269,16 +358,19 @@ public class BankAccountManagementDialog extends Dialog {
                 try {
                     // Use the real Plaid service to sync all transactions
                     plaidService.syncAllTransactions();
-                    
+
                     getUI().ifPresent(ui -> ui.access(() -> {
                         syncTransactionsButton.setEnabled(true);
                         syncTransactionsButton.setText("Sync Transactions");
-                        
+
                         Notification.show("Transactions synced successfully!", 
                                 3000, Notification.Position.TOP_CENTER)
                                 .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-                        
+
                         refreshAccountsGrid();
+
+                        // Immediately reload the page so all views pick up fresh data
+                        ui.getPage().reload();
                     }));
                 } catch (Exception e) {
                     getUI().ifPresent(ui -> ui.access(() -> {

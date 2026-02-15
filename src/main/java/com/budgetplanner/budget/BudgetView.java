@@ -8,6 +8,7 @@ import com.budgetplanner.budget.view.TransactionCategorizationDialog;
 import com.budgetplanner.budget.view.ManualTransactionDialog;
 import com.budgetplanner.budget.view.NotificationCenterDialog;
 import com.budgetplanner.budget.service.AIAdvisoryService;
+import com.budgetplanner.budget.util.CurrencyFormatter;
 import com.vaadin.flow.component.charts.Chart;
 import com.vaadin.flow.component.charts.model.*;
 import com.vaadin.flow.component.charts.model.style.SolidColor;
@@ -19,14 +20,17 @@ import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.component.splitlayout.SplitLayout;
-import com.vaadin.flow.component.button.Button;
-import com.vaadin.flow.component.textfield.TextField;
-import com.vaadin.flow.component.textfield.NumberField;
 import com.vaadin.flow.component.select.Select;
+import com.vaadin.flow.component.splitlayout.SplitLayout;
+import com.vaadin.flow.component.textfield.NumberField;
+import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.component.treegrid.TreeGrid;
+import com.vaadin.flow.router.Route;
+import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.icon.Icon;
+import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.KeyModifier;
@@ -56,7 +60,8 @@ import java.time.Year;
 import java.time.YearMonth;
 import java.util.*;
 
-@Route("")
+@Route("budget")
+@PageTitle("Monthly Budget | Budget Planner")
 @CssImport("./styles/budget-dashboard.css")
 @CssImport("./styles/notifications.css")
 @CssImport("./styles/mobile-responsive.css")
@@ -121,9 +126,6 @@ public class BudgetView extends VerticalLayout {
     private Year currentYear;
     private Month currentMonth;
 
-    // Sample data for demonstration
-    private transient List<BudgetItem> sampleBudgetItems;
-    
     // Bank integration services
     private final BankAccountService bankAccountService;
     private final PlaidService plaidService;
@@ -152,9 +154,6 @@ public class BudgetView extends VerticalLayout {
         LocalDate now = LocalDate.now();
         currentYear = Year.of(now.getYear());
         currentMonth = now.getMonth();
-        
-        // Initialize sample data
-        initializeSampleData();
         
         // Build the UI components
         buildSidebar();
@@ -185,52 +184,7 @@ public class BudgetView extends VerticalLayout {
         refreshDashboard();
     }
 
-    private void initializeSampleData() {
-        sampleBudgetItems = new ArrayList<>();
-        
-        // Generate data for multiple years and months
-        int startYear = 2023;
-        int endYear = currentYear.getValue() + 1;
-        
-        for (int year = startYear; year <= endYear; year++) {
-            for (int monthValue = 1; monthValue <= 12; monthValue++) {
-                // Skip future months beyond current date
-                if ((year == currentYear.getValue() && monthValue > currentMonth.getValue()) || 
-                    (year > currentYear.getValue())) {
-                    continue;
-                }
-                
-                // Add variation to make data more realistic
-                double salaryVariation = 1.0 + (Math.random() - 0.5) * 0.1; // ±5% variation
-                double expenseVariation = 1.0 + (Math.random() - 0.5) * 0.3; // ±15% variation
-                
-                // Income items
-                sampleBudgetItems.add(new BudgetItem("Salary", 5000.0, 5000.0 * salaryVariation, CATEGORY_INCOME, year, monthValue));
-                sampleBudgetItems.add(new BudgetItem("Freelance", 1000.0, 800.0 + Math.random() * 400, CATEGORY_INCOME, year, monthValue));
-                sampleBudgetItems.add(new BudgetItem("Investment Returns", 500.0, 300.0 + Math.random() * 400, CATEGORY_INCOME, year, monthValue));
-                
-                // Expenses items (with seasonal variation)
-                double groceryBase = 600.0 + (monthValue == 11 || monthValue == 12 ? 100.0 : 0.0); // Holiday increase
-                sampleBudgetItems.add(new BudgetItem("Groceries", groceryBase, groceryBase * expenseVariation, CATEGORY_EXPENSES, year, monthValue));
-                sampleBudgetItems.add(new BudgetItem("Gas", 200.0, 150.0 + Math.random() * 100, CATEGORY_EXPENSES, year, monthValue));
-                sampleBudgetItems.add(new BudgetItem("Dining Out", 300.0, 200.0 + Math.random() * 200, CATEGORY_EXPENSES, year, monthValue));
-                sampleBudgetItems.add(new BudgetItem("Entertainment", 150.0, 100.0 + Math.random() * 100, CATEGORY_EXPENSES, year, monthValue));
-                sampleBudgetItems.add(new BudgetItem("Shopping", 250.0, 150.0 + Math.random() * 200, CATEGORY_EXPENSES, year, monthValue));
-                
-                // Bills items (mostly consistent)
-                sampleBudgetItems.add(new BudgetItem("Rent", 1500.0, 1500.0, CATEGORY_BILLS, year, monthValue));
-                sampleBudgetItems.add(new BudgetItem("Utilities", 150.0, 120.0 + Math.random() * 60, CATEGORY_BILLS, year, monthValue));
-                sampleBudgetItems.add(new BudgetItem("Internet", 80.0, 80.0, CATEGORY_BILLS, year, monthValue));
-                sampleBudgetItems.add(new BudgetItem("Phone", 60.0, 55.0 + Math.random() * 15, CATEGORY_BILLS, year, monthValue));
-                sampleBudgetItems.add(new BudgetItem("Insurance", 200.0, 200.0, CATEGORY_BILLS, year, monthValue));
-                
-                // Savings items (with some variation)
-                sampleBudgetItems.add(new BudgetItem("Emergency Fund", 500.0, 400.0 + Math.random() * 200, CATEGORY_SAVINGS, year, monthValue));
-                sampleBudgetItems.add(new BudgetItem("Vacation", 300.0, 200.0 + Math.random() * 200, CATEGORY_SAVINGS, year, monthValue));
-                sampleBudgetItems.add(new BudgetItem("Retirement", 400.0, 400.0, CATEGORY_SAVINGS, year, monthValue));
-            }
-        }
-    }
+    // Sample/demo data removed: BudgetView now uses only real transaction-based data.
 
     private void buildSidebar() {
         sidebar = new Div();
@@ -523,67 +477,13 @@ public class BudgetView extends VerticalLayout {
     }
 
     private List<BudgetItem> getCurrentPeriodItems() {
-        return getCombinedBudgetData();
-    }
-    
-    /**
-     * Combines sample budget data with real transaction data from bank accounts
-     */
-    private List<BudgetItem> getCombinedBudgetData() {
-        // Get sample data for current period
-        List<BudgetItem> sampleItems = sampleBudgetItems.stream()
-            .filter(item -> item.getYear().equals(currentYear.getValue()) && 
-                           item.getMonth().equals(currentMonth.getValue()))
-            .toList();
-        
-        // Get real transaction data from bank accounts for current period
         try {
             YearMonth yearMonth = YearMonth.of(currentYear.getValue(), currentMonth.getValue());
             List<BudgetItem> realTransactionItems = bankAccountService.generateBudgetItemsFromTransactions(yearMonth);
-            
-            // Combine sample data with real transaction data
-            // Real transaction data takes precedence - update sample items with real amounts
-            Map<String, BudgetItem> combinedItems = new HashMap<>();
-            
-            // Start with sample items (provides planned amounts and structure)
-            for (BudgetItem sampleItem : sampleItems) {
-                String key = sampleItem.getCategoryType() + ":" + sampleItem.getCategory();
-                combinedItems.put(key, new BudgetItem(
-                    sampleItem.getCategory(),
-                    sampleItem.getPlanned(),
-                    sampleItem.getActual(), // Will be overridden by real data if available
-                    sampleItem.getCategoryType(),
-                    sampleItem.getYear(),
-                    sampleItem.getMonth()
-                ));
-            }
-            
-            // Override with real transaction data (provides actual amounts)
-            for (BudgetItem realItem : realTransactionItems) {
-                String key = realItem.getCategoryType() + ":" + realItem.getCategory();
-                if (combinedItems.containsKey(key)) {
-                    // Update existing item with real actual amount
-                    BudgetItem existingItem = combinedItems.get(key);
-                    existingItem.setActual(realItem.getActual());
-                } else {
-                    // Add new item from real transactions (use actual as planned if no sample data)
-                    combinedItems.put(key, new BudgetItem(
-                        realItem.getCategory(),
-                        realItem.getActual(), // Use actual as planned for new items
-                        realItem.getActual(),
-                        realItem.getCategoryType(),
-                        realItem.getYear(),
-                        realItem.getMonth()
-                    ));
-                }
-            }
-            
-            return new ArrayList<>(combinedItems.values());
-            
+            return realTransactionItems != null ? realTransactionItems : java.util.Collections.emptyList();
         } catch (Exception e) {
-            // If there's an error getting real data, fall back to sample data
-            System.err.println("Error getting real transaction data, using sample data: " + e.getMessage());
-            return sampleItems;
+            System.err.println("Error getting real transaction data for BudgetView: " + e.getMessage());
+            return java.util.Collections.emptyList();
         }
     }
 
@@ -705,8 +605,8 @@ public class BudgetView extends VerticalLayout {
             .setFlexGrow(2)
             .setResizable(true);
         
-        grid.addColumn(item -> String.format(CURRENCY_FORMAT, item.getPlanned())).setHeader(HEADER_PLANNED).setFlexGrow(1).setResizable(true);
-        grid.addColumn(item -> String.format(CURRENCY_FORMAT, item.getActual())).setHeader(HEADER_ACTUAL).setFlexGrow(1).setResizable(true);
+        grid.addColumn(item -> CurrencyFormatter.formatUSD(item.getPlanned())).setHeader(HEADER_PLANNED).setFlexGrow(1).setResizable(true);
+        grid.addColumn(item -> CurrencyFormatter.formatUSD(item.getActual())).setHeader(HEADER_ACTUAL).setFlexGrow(1).setResizable(true);
         grid.addColumn(item -> {
             double percentage = item.getPlanned() > 0 ? (item.getActual() / item.getPlanned()) * 100 : 0;
             return String.format("%.0f%%", percentage);
@@ -856,26 +756,23 @@ public class BudgetView extends VerticalLayout {
     }
 
     private void processUploadedFile(InputStream inputStream, String fileName) throws IOException {
-        List<BudgetItem> newItems = new ArrayList<>();
-        
+        int createdCount = 0;
+
         if (fileName.toLowerCase().endsWith(".csv")) {
-            newItems = parseCsvFile(inputStream);
+            createdCount = parseCsvAndCreateTransactions(inputStream, fileName);
         } else if (fileName.toLowerCase().endsWith(".xlsx") || fileName.toLowerCase().endsWith(".xls")) {
             // For now, show a message that Excel support is coming soon
             throw new IOException("Excel file support coming soon. Please convert to CSV format.");
         }
-        
-        // Add new items to existing data
-        sampleBudgetItems.addAll(newItems);
-        
+
         // Refresh the dashboard to show new data
         refreshDashboard();
         
-        Notification.show("Imported " + newItems.size() + " transactions successfully!", 3000, Notification.Position.TOP_CENTER);
+        Notification.show("Imported " + createdCount + " transactions successfully!", 3000, Notification.Position.TOP_CENTER);
     }
 
-    private List<BudgetItem> parseCsvFile(InputStream inputStream) throws IOException {
-        List<BudgetItem> items = new ArrayList<>();
+    private int parseCsvAndCreateTransactions(InputStream inputStream, String fileName) throws IOException {
+        int createdCount = 0;
         
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
             String line;
@@ -893,22 +790,32 @@ public class BudgetView extends VerticalLayout {
                 if (parts.length >= 3) {
                     try {
                         // Assume format: Date, Description, Amount, [optional: Category]
+                        String datePart = parts[0].trim().replaceAll("\"", "");
                         String description = parts[1].trim().replaceAll("\"", "");
                         double amount = Double.parseDouble(parts[2].trim().replaceAll("\"", ""));
-                        
-                        // Determine category using AI-like logic
-                        String category = categorizeTransaction(description, amount);
-                        
-                        // Create budget item
-                        BudgetItem item = new BudgetItem();
-                        item.setCategory(description);
-                        item.setCategoryType(category);
-                        item.setPlanned(Math.abs(amount)); // Use absolute value for planned
-                        item.setActual(Math.abs(amount));
-                        item.setYear(currentYear.getValue());
-                        item.setMonth(currentMonth.getValue());
-                        
-                        items.add(item);
+
+                        // Try to parse date; fallback to current date if parsing fails
+                        java.time.LocalDate txDate;
+                        try {
+                            txDate = java.time.LocalDate.parse(datePart);
+                        } catch (Exception ex) {
+                            txDate = java.time.LocalDate.now();
+                        }
+
+                        // Determine budget category type using existing logic
+                        String categoryType = bankAccountService.predictCategoryType(description, amount);
+
+                        // Use description as merchant and budget category for now
+                        bankAccountService.createManualTransaction(
+                                description,               // merchantName
+                                description,               // description
+                                amount,                    // amount (signed)
+                                txDate,                    // transactionDate
+                                description,               // budgetCategory
+                                categoryType               // budgetCategoryType
+                        );
+
+                        createdCount++;
                     } catch (NumberFormatException e) {
                         // Skip invalid lines
                         continue;
@@ -917,62 +824,7 @@ public class BudgetView extends VerticalLayout {
             }
         }
         
-        return items;
-    }
-
-    private String categorizeTransaction(String description, double amount) {
-        String desc = description.toLowerCase();
-        
-        // Income patterns
-        if (amount > 0 || desc.contains("salary") || desc.contains("payroll") || 
-            desc.contains("deposit") || desc.contains("income") || desc.contains("refund")) {
-            return CATEGORY_INCOME;
-        }
-        
-        // Bills patterns (recurring/utility payments)
-        if (desc.contains("electric") || desc.contains("gas") || desc.contains("water") ||
-            desc.contains("internet") || desc.contains("phone") || desc.contains("insurance") ||
-            desc.contains("mortgage") || desc.contains("rent") || desc.contains("loan") ||
-            desc.contains("credit card") || desc.contains("autopay") || desc.contains("bill")) {
-            return CATEGORY_BILLS;
-        }
-        
-        // Savings patterns
-        if (desc.contains("savings") || desc.contains("investment") || desc.contains("transfer to") ||
-            desc.contains("401k") || desc.contains("ira") || desc.contains("retirement")) {
-            return CATEGORY_SAVINGS;
-        }
-        
-        // Grocery and food patterns
-        if (desc.contains("grocery") || desc.contains("supermarket") || desc.contains("food") ||
-            desc.contains("restaurant") || desc.contains("cafe") || desc.contains("starbucks") ||
-            desc.contains("mcdonald") || desc.contains("pizza") || desc.contains("dining")) {
-            return CATEGORY_EXPENSES;
-        }
-        
-        // Transportation patterns
-        if (desc.contains("gas") || desc.contains("fuel") || desc.contains("uber") ||
-            desc.contains("lyft") || desc.contains("parking") || desc.contains("metro") ||
-            desc.contains("bus") || desc.contains("taxi") || desc.contains("car")) {
-            return CATEGORY_EXPENSES;
-        }
-        
-        // Shopping patterns
-        if (desc.contains("amazon") || desc.contains("target") || desc.contains("walmart") ||
-            desc.contains("costco") || desc.contains("shopping") || desc.contains("store") ||
-            desc.contains("purchase") || desc.contains("retail")) {
-            return CATEGORY_EXPENSES;
-        }
-        
-        // Entertainment patterns
-        if (desc.contains("netflix") || desc.contains("spotify") || desc.contains("movie") ||
-            desc.contains("theater") || desc.contains("entertainment") || desc.contains("game") ||
-            desc.contains("subscription")) {
-            return CATEGORY_EXPENSES;
-        }
-        
-        // Default to expenses for negative amounts
-        return CATEGORY_EXPENSES;
+        return createdCount;
     }
 
     private void setupNavigationTree() {
@@ -1044,8 +896,8 @@ public class BudgetView extends VerticalLayout {
     }
 
     private void refreshDashboard() {
-        // Get real transaction data from bank accounts and combine with sample data
-        List<BudgetItem> currentPeriodItems = getCombinedBudgetData();
+        // Get real transaction-based budget items for the current period
+        List<BudgetItem> currentPeriodItems = getCurrentPeriodItems();
         
         // Update category grids
         List<BudgetItem> incomeItems = currentPeriodItems.stream()
@@ -1084,13 +936,13 @@ public class BudgetView extends VerticalLayout {
         double leftoverAmount = totalIncomeWithRollover - totalOutgoing;
         
         // Update totals
-        if (rolloverTotal != null) rolloverTotal.setText(String.format(CURRENCY_FORMAT, rolloverAmount));
-        if (incomeTotal != null) incomeTotal.setText(String.format(CURRENCY_FORMAT, incomeSum));
-        if (expensesTotal != null) expensesTotal.setText(String.format(CURRENCY_FORMAT, expensesSum));
-        if (billsTotal != null) billsTotal.setText(String.format(CURRENCY_FORMAT, billsSum));
-        if (savingsTotal != null) savingsTotal.setText(String.format(CURRENCY_FORMAT, savingsSum));
-        if (debtTotal != null) debtTotal.setText(String.format(CURRENCY_FORMAT, debtSum));
-        if (leftoverTotal != null) leftoverTotal.setText(String.format(CURRENCY_FORMAT, leftoverAmount));
+        if (rolloverTotal != null) rolloverTotal.setText(CurrencyFormatter.formatUSD(rolloverAmount));
+        if (incomeTotal != null) incomeTotal.setText(CurrencyFormatter.formatUSD(incomeSum));
+        if (expensesTotal != null) expensesTotal.setText(CurrencyFormatter.formatUSD(expensesSum));
+        if (billsTotal != null) billsTotal.setText(CurrencyFormatter.formatUSD(billsSum));
+        if (savingsTotal != null) savingsTotal.setText(CurrencyFormatter.formatUSD(savingsSum));
+        if (debtTotal != null) debtTotal.setText(CurrencyFormatter.formatUSD(debtSum));
+        if (leftoverTotal != null) leftoverTotal.setText(CurrencyFormatter.formatUSD(leftoverAmount));
         
         // Show AI Advisory notifications
         showAIAdvisoryNotifications();
@@ -1266,20 +1118,29 @@ public class BudgetView extends VerticalLayout {
         
         if (editingItem == null) {
             // Create new item
-            BudgetItem newItem = new BudgetItem();
-            newItem.setCategory(categoryField.getValue());
-            newItem.setPlanned(plannedField.getValue());
-            newItem.setActual(actualField.getValue());
-            newItem.setCategoryType(categoryTypeSelect.getValue());
-            newItem.setYear(currentYear.getValue());
-            newItem.setMonth(currentMonth.getValue());
-            sampleBudgetItems.add(newItem);
+            String category = categoryField.getValue();
+            Double amount = actualField.getValue();
+            String categoryType = categoryTypeSelect.getValue();
+
+            // Use the actual amount and category to create a real manual transaction
+            // Positive amounts are treated as income, negatives as expenses
+            bankAccountService.createManualTransaction(
+                category,                    // merchantName
+                category,                    // description
+                amount != null ? amount : 0, // amount
+                LocalDate.now(),             // transactionDate
+                category,                    // budgetCategory
+                categoryType                 // budgetCategoryType
+            );
         } else {
             // Update existing item
             editingItem.setCategory(categoryField.getValue());
             editingItem.setCategoryType(categoryTypeSelect.getValue());
             editingItem.setPlanned(plannedField.getValue());
             editingItem.setActual(actualField.getValue());
+            
+            // Save the updated budget item (Planned amount) to the database
+            bankAccountService.saveBudgetItem(editingItem);
         }
         
         // Refresh the dashboard and hide form
@@ -1301,8 +1162,10 @@ public class BudgetView extends VerticalLayout {
     
     private void openBankAccountManagement() {
         BankAccountManagementDialog dialog = new BankAccountManagementDialog(bankAccountService, plaidService, bankAccountService.getBankAccountRepository());
-        // Add listener to refresh dashboard when dialog closes (after potential transaction sync)
-        dialog.addDialogCloseActionListener(e -> refreshDashboard());
+        // When dialog closes, reload the entire page so all views re-query fresh data
+        dialog.addDialogCloseActionListener(e ->
+            getUI().ifPresent(ui -> ui.getPage().reload())
+        );
         dialog.open();
     }
     

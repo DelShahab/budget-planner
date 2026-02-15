@@ -1,6 +1,10 @@
 package com.budgetplanner.budget;
 
 import com.budgetplanner.budget.model.RecurringTransaction;
+import com.budgetplanner.budget.service.DashboardDataService;
+import com.budgetplanner.budget.service.UserSessionService;
+import com.budgetplanner.budget.util.AvatarHelper;
+import com.budgetplanner.budget.util.CurrencyFormatter;
 import com.budgetplanner.budget.service.RecurringTransactionService;
 import com.budgetplanner.budget.view.EditRecurringTransactionDialog;
 import com.vaadin.flow.component.button.Button;
@@ -42,6 +46,8 @@ import java.util.Map;
 public class RecurringTransactionView extends VerticalLayout {
 
     private final RecurringTransactionService recurringTransactionService;
+    private final DashboardDataService dashboardDataService;
+    private final UserSessionService userSessionService;
     
     private Grid<RecurringTransaction> activeGrid;
     private Grid<RecurringTransaction> dueSoonGrid;
@@ -51,8 +57,12 @@ public class RecurringTransactionView extends VerticalLayout {
     private VerticalLayout contentArea;
 
     @Autowired
-    public RecurringTransactionView(RecurringTransactionService recurringTransactionService) {
+    public RecurringTransactionView(RecurringTransactionService recurringTransactionService,
+                                     DashboardDataService dashboardDataService,
+                                     UserSessionService userSessionService) {
         this.recurringTransactionService = recurringTransactionService;
+        this.dashboardDataService = dashboardDataService;
+        this.userSessionService = userSessionService;
         
         setSizeFull();
         setPadding(false);
@@ -101,22 +111,8 @@ public class RecurringTransactionView extends VerticalLayout {
             .set("height", "100vh");
         sidebar.getStyle().set("gap", "35px");
 
-        // Logo at top
-        Div logo = new Div();
-        logo.getStyle()
-            .set("width", "45px")
-            .set("height", "45px")
-            .set("background", "#01a1be")
-            .set("border-radius", "50%")
-            .set("display", "flex")
-            .set("align-items", "center")
-            .set("justify-content", "center")
-            .set("color", "white")
-            .set("font-size", "18px")
-            .set("font-weight", "bold")
-            .set("margin", "20px auto 0");
-        Span logoText = new Span("AM");
-        logo.add(logoText);
+        // Logo at top - show user avatar if available
+        Div logo = AvatarHelper.createAvatarLogo(userSessionService);
 
         // Navigation icons container
         VerticalLayout navContainer = new VerticalLayout();
@@ -126,7 +122,7 @@ public class RecurringTransactionView extends VerticalLayout {
         navContainer.getStyle().set("gap", "30px");
 
         Button homeBtn = createNavButton(VaadinIcon.HOME, "Home", false);
-        homeBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("modern-dashboard")));
+        homeBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("")));
         
         Button trendsBtn = createNavButton(VaadinIcon.TRENDING_UP, "Trends", false);
         trendsBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("trends")));
@@ -135,6 +131,9 @@ public class RecurringTransactionView extends VerticalLayout {
         Button savingsBtn = createNavButton(VaadinIcon.PIGGY_BANK, "Savings", false);
         savingsBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("savings")));
         
+        Button planBtn = createNavButton(VaadinIcon.CALENDAR, "Monthly Plan", false);
+        planBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("monthly-plan")));
+
         Button notificationsBtn = createNavButton(VaadinIcon.STAR, "Notifications", false);
         notificationsBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("notifications")));
         
@@ -146,7 +145,7 @@ public class RecurringTransactionView extends VerticalLayout {
         
         Button settingsBtn = createNavButton(VaadinIcon.COG, "Settings", false);
 
-        navContainer.add(homeBtn, trendsBtn, recurringBtn, savingsBtn, notificationsBtn, userBtn, historyBtn, settingsBtn);
+        navContainer.add(homeBtn, trendsBtn, recurringBtn, savingsBtn, planBtn, notificationsBtn, userBtn, historyBtn, settingsBtn);
         
         sidebar.add(logo, navContainer);
         return sidebar;
@@ -284,7 +283,10 @@ public class RecurringTransactionView extends VerticalLayout {
             .setSortable(true)
             .setFlexGrow(2);
         
-        activeGrid.addColumn(transaction -> String.format("$%.2f", Math.abs(transaction.getAmount())))
+        activeGrid.addColumn(transaction -> {
+            double usd = dashboardDataService.convertToUSD(Math.abs(transaction.getAmount()));
+            return dashboardDataService.formatUSD(usd);
+        })
             .setHeader("Amount")
             .setSortable(true)
             .setWidth("120px");
@@ -330,7 +332,10 @@ public class RecurringTransactionView extends VerticalLayout {
             .setSortable(true)
             .setFlexGrow(2);
         
-        dueSoonGrid.addColumn(transaction -> String.format("$%.2f", Math.abs(transaction.getAmount())))
+        dueSoonGrid.addColumn(transaction -> {
+            double usd = dashboardDataService.convertToUSD(Math.abs(transaction.getAmount()));
+            return dashboardDataService.formatUSD(usd);
+        })
             .setHeader("Amount")
             .setSortable(true)
             .setWidth("120px");
@@ -367,7 +372,10 @@ public class RecurringTransactionView extends VerticalLayout {
             .setSortable(true)
             .setFlexGrow(2);
         
-        overdueGrid.addColumn(transaction -> String.format("$%.2f", Math.abs(transaction.getAmount())))
+        overdueGrid.addColumn(transaction -> {
+            double usd = dashboardDataService.convertToUSD(Math.abs(transaction.getAmount()));
+            return dashboardDataService.formatUSD(usd);
+        })
             .setHeader("Amount")
             .setSortable(true)
             .setWidth("120px");
@@ -525,11 +533,12 @@ public class RecurringTransactionView extends VerticalLayout {
         
         // Monthly Total Card
         Map<String, Double> monthlyTotals = recurringTransactionService.getMonthlyTotalsByCategory();
-        double totalMonthly = monthlyTotals.values().stream().mapToDouble(Double::doubleValue).sum();
+        double totalMonthlyIdr = monthlyTotals.values().stream().mapToDouble(Double::doubleValue).sum();
+        double totalMonthlyUsd = dashboardDataService.convertToUSD(totalMonthlyIdr);
         
         Div monthlyCard = createSummaryCard(
             "Monthly Total", 
-            String.format("$%.2f", Math.abs(totalMonthly)),
+            dashboardDataService.formatUSD(totalMonthlyUsd),
             VaadinIcon.DOLLAR,
             "var(--lumo-primary-color)"
         );

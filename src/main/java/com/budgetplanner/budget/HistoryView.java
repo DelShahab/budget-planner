@@ -1,6 +1,8 @@
 package com.budgetplanner.budget;
 
 import com.budgetplanner.budget.model.AuditLog;
+import com.budgetplanner.budget.service.UserSessionService;
+import com.budgetplanner.budget.util.AvatarHelper;
 import com.budgetplanner.budget.service.AuditLogService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -36,13 +38,15 @@ import java.util.List;
 public class HistoryView extends VerticalLayout {
 
     private final AuditLogService auditLogService;
+    private final UserSessionService userSessionService;
     private VerticalLayout logsContainer;
     private Tabs filterTabs;
     private TextField searchField;
 
     @Autowired
-    public HistoryView(AuditLogService auditLogService) {
+    public HistoryView(AuditLogService auditLogService, UserSessionService userSessionService) {
         this.auditLogService = auditLogService;
+        this.userSessionService = userSessionService;
 
         setSizeFull();
         setPadding(false);
@@ -92,22 +96,8 @@ public class HistoryView extends VerticalLayout {
             .set("height", "100vh")
             .set("gap", "35px");
 
-        // Logo at top
-        Div logo = new Div();
-        logo.getStyle()
-            .set("width", "45px")
-            .set("height", "45px")
-            .set("background", "#01a1be")
-            .set("border-radius", "50%")
-            .set("display", "flex")
-            .set("align-items", "center")
-            .set("justify-content", "center")
-            .set("color", "white")
-            .set("font-size", "18px")
-            .set("font-weight", "bold")
-            .set("margin", "20px auto 0");
-        Span logoText = new Span("BP");
-        logo.add(logoText);
+        // Logo at top - show user avatar if available
+        Div logo = AvatarHelper.createAvatarLogo(userSessionService);
 
         // Navigation icons container
         VerticalLayout navContainer = new VerticalLayout();
@@ -117,7 +107,7 @@ public class HistoryView extends VerticalLayout {
         navContainer.getStyle().set("gap", "30px");
 
         Button homeBtn = createNavButton(VaadinIcon.HOME, "Home", false);
-        homeBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("modern-dashboard")));
+        homeBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("")));
         
         Button trendsBtn = createNavButton(VaadinIcon.TRENDING_UP, "Trends", false);
         trendsBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("trends")));
@@ -127,6 +117,9 @@ public class HistoryView extends VerticalLayout {
         
         Button savingsBtn = createNavButton(VaadinIcon.PIGGY_BANK, "Savings", false);
         savingsBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("savings")));
+        
+        Button planBtn = createNavButton(VaadinIcon.CALENDAR, "Monthly Plan", false);
+        planBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("monthly-plan")));
         
         Button notificationsBtn = createNavButton(VaadinIcon.STAR, "Notifications", false);
         notificationsBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("notifications")));
@@ -138,7 +131,7 @@ public class HistoryView extends VerticalLayout {
         
         Button settingsBtn = createNavButton(VaadinIcon.COG, "Settings", false);
 
-        navContainer.add(homeBtn, trendsBtn, recurringBtn, savingsBtn, notificationsBtn, userBtn, historyBtn, settingsBtn);
+        navContainer.add(homeBtn, trendsBtn, recurringBtn, savingsBtn, planBtn, notificationsBtn, userBtn, historyBtn, settingsBtn);
         
         sidebar.add(logo, navContainer);
         return sidebar;

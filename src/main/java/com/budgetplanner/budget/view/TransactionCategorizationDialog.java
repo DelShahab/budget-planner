@@ -1,6 +1,7 @@
 package com.budgetplanner.budget.view;
 
 import com.budgetplanner.budget.model.BankTransaction;
+import com.budgetplanner.budget.util.CurrencyFormatter;
 import com.budgetplanner.budget.service.BankAccountService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -63,7 +64,7 @@ public class TransactionCategorizationDialog extends Dialog {
     private void initializeDialog() {
         getHeader().add(new H3("Manage Transactions - " + originalCategory));
         setWidth("900px");
-        setHeight("700px");
+        // setHeight("700px");
         setModal(true);
         setDraggable(true);
         setResizable(true);
@@ -157,7 +158,7 @@ public class TransactionCategorizationDialog extends Dialog {
         
         // Amount column
         transactionGrid.addColumn(transaction -> 
-            String.format("$%.2f", Math.abs(transaction.getAmount())))
+            CurrencyFormatter.formatUSD(Math.abs(transaction.getAmount())))
             .setHeader("Amount")
             .setWidth("100px")
             .setFlexGrow(0);
@@ -353,6 +354,6 @@ public class TransactionCategorizationDialog extends Dialog {
             .sum();
         
         transactionCountSpan.setText(count + " transaction" + (count != 1 ? "s" : ""));
-        totalAmountSpan.setText(String.format("$%.2f", total));
+        totalAmountSpan.setText(CurrencyFormatter.formatUSD(total));
     }
 }

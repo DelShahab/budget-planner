@@ -3,6 +3,8 @@ package com.budgetplanner.budget;
 import com.budgetplanner.budget.model.NotificationPreference;
 import com.budgetplanner.budget.model.UserProfile;
 import com.budgetplanner.budget.service.UserProfileService;
+import com.budgetplanner.budget.service.UserSessionService;
+import com.budgetplanner.budget.util.AvatarHelper;
 import com.vaadin.flow.component.accordion.Accordion;
 import com.vaadin.flow.component.accordion.AccordionPanel;
 import com.vaadin.flow.component.button.Button;
@@ -46,6 +48,7 @@ import java.io.ByteArrayInputStream;
 public class UserSettingsView extends VerticalLayout {
 
     private final UserProfileService userProfileService;
+    private final UserSessionService userSessionService;
     
     private UserProfile currentProfile;
     private NotificationPreference currentPreferences;
@@ -69,8 +72,9 @@ public class UserSettingsView extends VerticalLayout {
     private Checkbox recurringRemindersCheckbox;
 
     @Autowired
-    public UserSettingsView(UserProfileService userProfileService) {
+    public UserSettingsView(UserProfileService userProfileService, UserSessionService userSessionService) {
         this.userProfileService = userProfileService;
+        this.userSessionService = userSessionService;
         
         setSizeFull();
         setPadding(false);
@@ -110,6 +114,13 @@ public class UserSettingsView extends VerticalLayout {
     private void loadUserData() {
         currentProfile = userProfileService.getOrCreateDefaultProfile();
         currentPreferences = userProfileService.getOrCreateNotificationPreferences();
+        
+        // Load avatar into session for cross-view availability
+        if (currentProfile.hasAvatar()) {
+            userSessionService.setAvatarInSession(currentProfile.getAvatarImage(), currentProfile.getAvatarContentType());
+        }
+        userSessionService.setUserInitials(currentProfile.getInitials());
+        userSessionService.setUserName(currentProfile.getFullName());
     }
 
     private Div createSidebar() {
@@ -136,7 +147,7 @@ public class UserSettingsView extends VerticalLayout {
         navContainer.getStyle().set("gap", "30px");
 
         Button homeBtn = createNavButton(VaadinIcon.HOME, "Home", false);
-        homeBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("modern-dashboard")));
+        homeBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("")));
         
         Button trendsBtn = createNavButton(VaadinIcon.TRENDING_UP, "Trends", false);
         trendsBtn.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("trends")));
@@ -164,35 +175,8 @@ public class UserSettingsView extends VerticalLayout {
     }
 
     private Div createAvatarLogo() {
-        Div logo = new Div();
-        logo.getStyle()
-            .set("width", "45px")
-            .set("height", "45px")
-            .set("border-radius", "50%")
-            .set("display", "flex")
-            .set("align-items", "center")
-            .set("justify-content", "center")
-            .set("overflow", "hidden")
-            .set("margin", "20px auto 0");
-        
-        if (currentProfile.hasAvatar()) {
-            Image img = new Image();
-            img.setSrc(createAvatarResource());
-            img.setWidth("45px");
-            img.setHeight("45px");
-            img.getStyle().set("object-fit", "cover");
-            logo.add(img);
-        } else {
-            logo.getStyle()
-                .set("background", "#01a1be")
-                .set("color", "white")
-                .set("font-size", "18px")
-                .set("font-weight", "bold");
-            Span initials = new Span(currentProfile.getInitials());
-            logo.add(initials);
-        }
-        
-        return logo;
+        // Use AvatarHelper for consistent avatar display across all views
+        return AvatarHelper.createAvatarLogo(userSessionService);
     }
 
     private Button createNavButton(VaadinIcon icon, String title, boolean active) {
@@ -405,11 +389,22 @@ public class UserSettingsView extends VerticalLayout {
         
         upload.addSucceededListener(event -> {
             try {
-                userProfileService.uploadAvatar(buffer.getInputStream(), event.getMIMEType());
+                UserProfile updatedProfile = userProfileService.uploadAvatar(buffer.getInputStream(), event.getMIMEType());
+                
+                // Store in session for immediate cross-view availability
+                userSessionService.setAvatarInSession(updatedProfile.getAvatarImage(), updatedProfile.getAvatarContentType());
+                userSessionService.setUserInitials(updatedProfile.getInitials());
+                userSessionService.setUserName(updatedProfile.getFullName());
+                
                 loadUserData();
-                getUI().ifPresent(ui -> ui.getPage().reload());
-                Notification.show("Avatar uploaded successfully!", 3000, Notification.Position.TOP_END)
+                Notification.show("Avatar uploaded successfully! Your profile picture will now appear in all views.", 3000, Notification.Position.TOP_END)
                     .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+                
+                // Broadcast update to other views
+                getUI().ifPresent(ui -> ui.access(() -> {
+                    // Refresh current view
+                    ui.getPage().reload();
+                }));
             } catch (Exception ex) {
                 Notification.show("Error uploading avatar: " + ex.getMessage(), 3000, Notification.Position.MIDDLE)
                     .addThemeVariants(NotificationVariant.LUMO_ERROR);
@@ -421,6 +416,10 @@ public class UserSettingsView extends VerticalLayout {
         removeAvatarBtn.setVisible(currentProfile.hasAvatar());
         removeAvatarBtn.addClickListener(e -> {
             userProfileService.removeAvatar();
+            
+            // Remove from session
+            userSessionService.removeAvatarFromSession();
+            
             loadUserData();
             getUI().ifPresent(ui -> ui.getPage().reload());
             Notification.show("Avatar removed successfully!", 3000, Notification.Position.TOP_END)

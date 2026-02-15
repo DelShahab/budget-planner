@@ -15,6 +15,8 @@ import java.util.Optional;
 @Repository
 public interface BankTransactionRepository extends JpaRepository<BankTransaction, Long> {
     
+    // Find recent transactions for the same merchant, excluding a specific transaction
+    List<BankTransaction> findTop5ByMerchantNameAndIdNotOrderByTransactionDateDesc(String merchantName, Long id);
     Optional<BankTransaction> findByPlaidTransactionId(String plaidTransactionId);
     
     List<BankTransaction> findByBankAccount(BankAccount bankAccount);
@@ -50,4 +52,6 @@ public interface BankTransactionRepository extends JpaRepository<BankTransaction
     List<BankTransaction> findByCreatedAtAfterOrderByTransactionDateAsc(LocalDateTime createdAt);
     
     List<BankTransaction> findByTransactionDateBetweenOrderByTransactionDateDesc(LocalDate startDate, LocalDate endDate);
+    
+    List<BankTransaction> findAllByOrderByTransactionDateDesc();
 }

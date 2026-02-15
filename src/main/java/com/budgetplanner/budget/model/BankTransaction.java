@@ -14,7 +14,7 @@ public class BankTransaction {
     @Column(nullable = false, unique = true)
     private String plaidTransactionId;
     
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "bank_account_id", nullable = false)
     private BankAccount bankAccount;
     
@@ -63,6 +63,10 @@ public class BankTransaction {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "recurring_transaction_id")
     private RecurringTransaction recurringTransaction;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "savings_goal_id")
+    private SavingsGoal savingsGoal;
     
     public BankTransaction() {
         this.createdAt = LocalDateTime.now();
@@ -226,6 +230,14 @@ public class BankTransaction {
     
     public void setRecurringTransaction(RecurringTransaction recurringTransaction) {
         this.recurringTransaction = recurringTransaction;
+    }
+
+    public SavingsGoal getSavingsGoal() {
+        return savingsGoal;
+    }
+
+    public void setSavingsGoal(SavingsGoal savingsGoal) {
+        this.savingsGoal = savingsGoal;
     }
     
     @PreUpdate

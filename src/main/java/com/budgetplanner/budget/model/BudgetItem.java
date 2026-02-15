@@ -26,6 +26,9 @@ public class BudgetItem {
     
     @Column(name = "budget_month")
     private Integer month;
+    
+    @Column(name = "user_id")
+    private String userId;
 
     public BudgetItem() {
         this.category = "";
@@ -114,6 +117,14 @@ public class BudgetItem {
 
     public void setMonth(Integer month) {
         this.month = month;
+    }
+
+    public String getUserId() {
+        return userId;
+    }
+
+    public void setUserId(String userId) {
+        this.userId = userId;
     }
 
     public Double getDelta() {

@@ -72,7 +72,9 @@ vaadin-email-field::part(label),
 vaadin-text-area::part(label),
 vaadin-password-field::part(label),
 vaadin-select::part(label),
-vaadin-combo-box::part(label) {
+vaadin-combo-box::part(label),
+vaadin-number-field::part(label),
+vaadin-date-picker::part(label) {
     color: #fff !important;
 }
 
@@ -90,7 +92,9 @@ vaadin-combo-box::part(toggle-button) {
 vaadin-text-field::part(input-field)::placeholder,
 vaadin-email-field::part(input-field)::placeholder,
 vaadin-text-area::part(input-field)::placeholder,
-vaadin-password-field::part(input-field)::placeholder {
+vaadin-password-field::part(input-field)::placeholder,
+  vaadin-number-field::part(input-field)::placeholder,
+  vaadin-date-picker::part(input-field)::placeholder {
     color: hsl(214deg 1.26% 62.13% / 69%) !important;
 }
 
@@ -103,7 +107,9 @@ vaadin-password-field::part(input-field)::placeholder {
 vaadin-text-field::part(input-field),
 vaadin-email-field::part(input-field),
 vaadin-text-area::part(input-field),
-vaadin-password-field::part(input-field) {
+vaadin-password-field::part(input-field),
+vaadin-number-field::part(input-field),
+vaadin-date-picker::part(input-field) {
     color: #fff !important;
     background: rgba(255, 255, 255, 0.05) !important;
 }
@@ -115,5 +121,31 @@ vaadin-checkbox::part(label) {
 
 [part='toggle']::before {
     color: #fff !important;
+}
+
+/* Custom scrollbar styling for activity list */
+.activity-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.activity-list::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+
+.activity-list::-webkit-scrollbar-thumb {
+    background: rgba(0, 212, 255, 0.5);
+    border-radius: 10px;
+    transition: background 0.3s ease;
+}
+
+.activity-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 212, 255, 0.7);
+}
+
+/* Firefox scrollbar */
+.activity-list {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 212, 255, 0.5) rgba(255, 255, 255, 0.05);
 }
     

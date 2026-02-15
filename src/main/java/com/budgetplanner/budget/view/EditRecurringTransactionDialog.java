@@ -49,7 +49,7 @@ public class EditRecurringTransactionDialog extends Dialog {
         this.onSaveCallback = onSaveCallback;
 
         setWidth("600px");
-        setHeight("700px");
+        // setHeight("700px");
         setModal(true);
         setDraggable(true);
         setResizable(true);
@@ -65,6 +65,7 @@ public class EditRecurringTransactionDialog extends Dialog {
 
         H3 header = new H3("Edit Recurring Transaction");
         header.getStyle().set("margin-top", "0");
+        header.getStyle().set("color", "#fff");
 
         FormLayout formLayout = createForm();
         HorizontalLayout buttonLayout = createButtonLayout();
@@ -75,6 +76,7 @@ public class EditRecurringTransactionDialog extends Dialog {
 
     private FormLayout createForm() {
         FormLayout formLayout = new FormLayout();
+        formLayout.setClassName("editRecurringTransaction");
         formLayout.setResponsiveSteps(
             new FormLayout.ResponsiveStep("0", 1),
             new FormLayout.ResponsiveStep("500px", 2)

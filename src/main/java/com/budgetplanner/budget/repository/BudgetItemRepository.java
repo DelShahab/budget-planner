@@ -34,4 +34,7 @@ public interface BudgetItemRepository extends JpaRepository<BudgetItem, Long> {
     
     // Find budget item by category, category type, year and month
     Optional<BudgetItem> findByCategoryAndCategoryTypeAndYearAndMonth(String category, String categoryType, Integer year, Integer month);
+    
+    // Find all budget items for a specific user, year and month
+    List<BudgetItem> findByUserIdAndYearAndMonth(String userId, Integer year, Integer month);
 }

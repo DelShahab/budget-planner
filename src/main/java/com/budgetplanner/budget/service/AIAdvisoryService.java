@@ -3,6 +3,7 @@ package com.budgetplanner.budget.service;
 import com.budgetplanner.budget.model.BankTransaction;
 import com.budgetplanner.budget.model.BudgetItem;
 import com.budgetplanner.budget.repository.BankTransactionRepository;
+import com.budgetplanner.budget.util.CurrencyFormatter;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -67,9 +68,9 @@ public class AIAdvisoryService {
                     
                     if (overrunPercent > 20) { // Significant overrun
                         String message = String.format(
-                            "You've overspent on %s by $%.2f (%.0f%% over budget). " +
+                            "You've overspent on %s by %s (%.0f%% over budget). " +
                             "Consider setting spending alerts or finding alternatives to reduce this category.",
-                            item.getCategory(), overrun, overrunPercent
+                            item.getCategory(), CurrencyFormatter.formatUSD(overrun), overrunPercent
                         );
                         
                         tips.add(new AdvisoryTip(
@@ -127,9 +128,9 @@ public class AIAdvisoryService {
                 if (lastAmount > previousAmount * 1.3) { // 30% increase
                     double increase = lastAmount - previousAmount;
                     String message = String.format(
-                        "Your %s spending increased by $%.2f this month. " +
+                        "Your %s spending increased by %s this month. " +
                         "Review recent purchases and consider if this trend aligns with your financial goals.",
-                        category, increase
+                        category, CurrencyFormatter.formatUSD(increase)
                     );
                     
                     tips.add(new AdvisoryTip(
@@ -168,9 +169,9 @@ public class AIAdvisoryService {
                 
                 if (totalSpent > 100) {
                     String message = String.format(
-                        "You've made %d purchases at %s totaling $%.2f. " +
+                        "You've made %d purchases at %s totaling %s. " +
                         "Consider if these frequent small purchases align with your budget priorities.",
-                        merchantTxns.size(), merchant, totalSpent
+                        merchantTxns.size(), merchant, CurrencyFormatter.formatUSD(totalSpent)
                     );
                     
                     tips.add(new AdvisoryTip(
@@ -203,9 +204,9 @@ public class AIAdvisoryService {
                     
                     if (savings > 50) {
                         String message = String.format(
-                            "You're spending $%.2f less than budgeted on %s. " +
+                            "You're spending %s less than budgeted on %s. " +
                             "Consider reallocating this surplus to savings or other financial goals.",
-                            savings, item.getCategory()
+                            CurrencyFormatter.formatUSD(savings), item.getCategory()
                         );
                         
                         tips.add(new AdvisoryTip(
@@ -244,9 +245,10 @@ public class AIAdvisoryService {
         
         if (diningOut > groceries * 0.8) {
             String message = String.format(
-                "You're spending $%.2f on dining out vs $%.2f on groceries. " +
-                "Cooking more meals at home could save you approximately $%.2f per month.",
-                diningOut, groceries, diningOut * 0.3
+                "You're spending %s on dining out vs %s on groceries. " +
+                "Cooking more meals at home could save you approximately %s per month.",
+                CurrencyFormatter.formatUSD(diningOut), CurrencyFormatter.formatUSD(groceries), 
+                CurrencyFormatter.formatUSD(diningOut * 0.3)
             );
             
             tips.add(new AdvisoryTip(
